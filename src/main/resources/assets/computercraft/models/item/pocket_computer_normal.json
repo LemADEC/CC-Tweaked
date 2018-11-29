@@ -1,0 +1,17 @@
+{
+    "parent": "item/generated",
+    "textures": {
+        "layer0": "computercraft:item/pocket_computer_frame",
+        "layer1": "computercraft:item/pocket_computer_normal"
+    },
+    "overrides": [
+        {
+            "predicate": { "computercraft:computer_state": 1 },
+            "model": "computercraft:item/pocket_computer_normal_on"
+        },
+        {
+            "predicate": { "computercraft:computer_state": 2 },
+            "model": "computercraft:item/pocket_computer_normal_blinking"
+        }
+    ]
+}
