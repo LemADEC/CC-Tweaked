@@ -6,8 +6,8 @@
 
 package dan200.computercraft.shared.peripheral.monitor;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import dan200.computercraft.shared.common.ClientTerminal;
-import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.util.math.BlockPos;
 
 import java.util.HashSet;
@@ -43,7 +43,7 @@ public class ClientMonitor extends ClientTerminal
 
             for( int i = 0; i < renderDisplayLists.length; i++ )
             {
-                renderDisplayLists[i] = GlStateManager.glGenLists( 1 );
+                renderDisplayLists[i] = GlStateManager.genLists( 1 );
             }
 
             synchronized( allMonitors )
@@ -64,7 +64,7 @@ public class ClientMonitor extends ClientTerminal
 
             for( int list : renderDisplayLists )
             {
-                GlStateManager.glDeleteLists( list, 1 );
+                GlStateManager.deleteLists( list, 1 );
             }
 
             renderDisplayLists = null;
@@ -82,7 +82,7 @@ public class ClientMonitor extends ClientTerminal
                 {
                     for( int list : monitor.renderDisplayLists )
                     {
-                        GlStateManager.glDeleteLists( list, 1 );
+                        GlStateManager.deleteLists( list, 1 );
                     }
                     monitor.renderDisplayLists = null;
                 }

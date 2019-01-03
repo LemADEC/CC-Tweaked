@@ -8,22 +8,29 @@ package dan200.computercraft.shared.turtle.core;
 
 import com.mojang.authlib.GameProfile;
 import dan200.computercraft.api.turtle.ITurtleAccess;
+import dan200.computercraft.api.turtle.event.FakePlayer;
 import dan200.computercraft.shared.util.InventoryUtil;
+import dan200.computercraft.shared.util.ItemStorage;
 import dan200.computercraft.shared.util.WorldUtil;
+import net.minecraft.block.entity.CommandBlockBlockEntity;
+import net.minecraft.block.entity.SignBlockEntity;
+import net.minecraft.command.arguments.EntityAnchorArgumentType;
+import net.minecraft.container.Container;
+import net.minecraft.container.ContainerProvider;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.IMerchant;
-import net.minecraft.entity.passive.AbstractHorse;
-import net.minecraft.inventory.IInventory;
+import net.minecraft.entity.passive.HorseBaseEntity;
+import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
-import net.minecraft.tileentity.TileEntitySign;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.EnumHand;
+import net.minecraft.server.network.ServerPlayerInteractionManager;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.text.TextComponent;
+import net.minecraft.util.DefaultedList;
+import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.IInteractionObject;
-import net.minecraft.world.World;
-import net.minecraft.world.WorldServer;
-import net.minecraftforge.common.util.FakePlayer;
+import net.minecraft.village.Villager;
+import net.minecraft.world.dimension.DimensionType;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -36,21 +43,9 @@ public class TurtlePlayer extends FakePlayer
         "[ComputerCraft]"
     );
 
-    /**
-     * Construct a TurtlePlayer which exists in the world
-     *
-     * @param world The world the player exists in
-     * @deprecated This is required by {@link Entity}.
-     */
-    @Deprecated
-    public TurtlePlayer( World world )
-    {
-        super( (WorldServer) world, DEFAULT_PROFILE );
-    }
-
     private TurtlePlayer( ITurtleAccess turtle )
     {
-        super( (WorldServer) turtle.getWorld(), getProfile( turtle.getOwningPlayer() ) );
+        super( (ServerWorld) turtle.getWorld(), getProfile( turtle.getOwningPlayer() ), new ServerPlayerInteractionManager( turtle.getWorld() ) );
         setState( turtle );
     }
 
@@ -62,14 +57,14 @@ public class TurtlePlayer extends FakePlayer
     private void setState( ITurtleAccess turtle )
     {
         BlockPos position = turtle.getPosition();
-        posX = position.getX() + 0.5;
-        posY = position.getY() + 0.5;
-        posZ = position.getZ() + 0.5;
+        x = position.getX() + 0.5;
+        y = position.getY() + 0.5;
+        z = position.getZ() + 0.5;
 
-        rotationYaw = turtle.getDirection().getHorizontalAngle();
-        rotationPitch = 0.0f;
+        yaw = turtle.getDirection().asRotation();
+        pitch = 0.0f;
 
-        inventory.clear();
+        inventory.clearInv();
     }
 
     public static TurtlePlayer get( ITurtleAccess access )
@@ -94,30 +89,31 @@ public class TurtlePlayer extends FakePlayer
     public void loadInventory( @Nonnull ItemStack currentStack )
     {
         // Load up the fake inventory
-        inventory.currentItem = 0;
-        inventory.setInventorySlotContents( 0, currentStack );
+        inventory.selectedSlot = 0;
+        inventory.setInvStack( 0, currentStack );
     }
 
     public ItemStack unloadInventory( ITurtleAccess turtle )
     {
         // Get the item we placed with
-        ItemStack results = inventory.getStackInSlot( 0 );
-        inventory.setInventorySlotContents( 0, ItemStack.EMPTY );
+        ItemStack results = inventory.getInvStack( 0 );
+        inventory.setInvStack( 0, ItemStack.EMPTY );
 
         // Store (or drop) anything else we found
         BlockPos dropPosition = turtle.getPosition();
-        EnumFacing dropDirection = turtle.getDirection().getOpposite();
-        for( int i = 0; i < inventory.getSizeInventory(); i++ )
+        Direction dropDirection = turtle.getDirection().getOpposite();
+        ItemStorage storage = ItemStorage.wrap( turtle.getInventory() );
+        for( int i = 0; i < inventory.getInvSize(); ++i )
         {
-            ItemStack stack = inventory.getStackInSlot( i );
+            ItemStack stack = inventory.getInvStack( i );
             if( !stack.isEmpty() )
             {
-                ItemStack remainder = InventoryUtil.storeItems( stack, turtle.getItemHandler(), turtle.getSelectedSlot() );
+                ItemStack remainder = InventoryUtil.storeItems( stack, storage, turtle.getSelectedSlot() );
                 if( !remainder.isEmpty() )
                 {
                     WorldUtil.dropItemStack( remainder, turtle.getWorld(), dropPosition, dropDirection );
                 }
-                inventory.setInventorySlotContents( i, ItemStack.EMPTY );
+                inventory.setInvStack( i, ItemStack.EMPTY );
             }
         }
         inventory.markDirty();
@@ -125,87 +121,118 @@ public class TurtlePlayer extends FakePlayer
     }
 
     @Override
-    public Vec3d getPositionVector()
-    {
-        return new Vec3d( posX, posY, posZ );
-    }
-
-    @Override
-    public float getEyeHeight()
-    {
-        return 0.0f;
-    }
-
-    @Override
-    public float getDefaultEyeHeight()
-    {
-        return 0.0f;
-    }
-
-    @Override
-    public void sendEnterCombat()
+    public void method_6000()
     {
     }
 
     @Override
-    public void sendEndCombat()
+    public void method_6044()
     {
+    }
+
+    @Override
+    public @Nullable Entity changeDimension( DimensionType dimensionType_1 )
+    {
+        return null;
     }
 
     @Nonnull
     @Override
     public SleepResult trySleep( @Nonnull BlockPos bedLocation )
     {
-        return SleepResult.OTHER_PROBLEM;
+        return SleepResult.INVALID_ATTEMPT;
     }
 
     @Override
-    public void openEditSign( TileEntitySign signTile )
+    public boolean startRiding( Entity entity_1, boolean boolean_1 )
+    {
+        return false;
+    }
+
+    @Override
+    public void stopRiding()
     {
     }
 
     @Override
-    public void displayGui( IInteractionObject guiOwner )
+    public void openSignEditor( SignBlockEntity block )
     {
     }
 
     @Override
-    public void displayGUIChest( IInventory chestInventory )
+    public void openContainer( ContainerProvider container )
     {
     }
 
     @Override
-    public void displayVillagerTradeGui( IMerchant villager )
+    public void openInventory( Inventory inventory )
     {
     }
 
     @Override
-    public void openGuiHorseInventory( AbstractHorse horse, IInventory inventoryIn )
+    public void openVillagerGui( Villager villager )
     {
     }
 
     @Override
-    public void openBook( ItemStack stack, @Nonnull EnumHand hand )
+    public void openHorseInventory( HorseBaseEntity entity, Inventory inventory )
     {
     }
 
     @Override
-    public void updateHeldItem()
+    public void openBookEditor( ItemStack itemStack, Hand hand )
     {
     }
 
     @Override
-    protected void onItemUseFinish()
+    public void openCommandBlock( CommandBlockBlockEntity entity )
     {
     }
 
     @Override
-    public void mountEntityAndWakeUp()
+    public void onContainerRegistered( Container container_1, DefaultedList<ItemStack> defaultedList_1 )
     {
     }
 
     @Override
-    public void dismountEntity( @Nonnull Entity entity )
+    public void onContainerPropertyUpdate( Container container_1, int int_1, int int_2 )
     {
     }
+
+    @Override
+    public void onContainerInvRegistered( Container container_1, Inventory inventory_1 )
+    {
+    }
+
+    @Override
+    public void closeGui()
+    {
+    }
+
+    @Override
+    public void onContainerSlotUpdate( Container container_1, int int_1, ItemStack itemStack_1 )
+    {
+    }
+
+    @Override
+    public void method_14241()
+    {
+    }
+
+    @Override
+    public void addChatMessage( TextComponent textComponent_1, boolean boolean_1 )
+    {
+    }
+
+    @Override
+    protected void method_6040()
+    {
+    }
+
+    @Override
+    public void lookAt( EntityAnchorArgumentType.EntityAnchor entityAnchorArgumentType$EntityAnchor_1, Vec3d vec3d_1 )
+    {
+    }
+
+    // TODO: Finish this off.
 }

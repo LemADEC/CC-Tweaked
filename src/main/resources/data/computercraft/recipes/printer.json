@@ -1,0 +1,15 @@
+{
+    "type": "crafting_shaped",
+    "pattern": [
+        "###",
+        "#R#",
+        "#D#"
+    ],
+    "key": {
+        "#": { "item": "minecraft:stone" },
+        "R": { "item": "minecraft:glass_pane" },
+        "D": { "item": "minecraft_black_dye" }
+    },
+    "_comment": "TODO: All dyes",
+    "result": { "item": "computercraft:printer" }
+}

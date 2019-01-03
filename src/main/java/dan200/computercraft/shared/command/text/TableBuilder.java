@@ -9,9 +9,9 @@ package dan200.computercraft.shared.command.text;
 import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.shared.command.CommandUtils;
 import dan200.computercraft.shared.network.client.ChatTableClientMessage;
-import net.minecraft.command.ICommandSender;
-import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.text.ITextComponent;
+import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.TextComponent;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -22,11 +22,11 @@ public class TableBuilder
 {
     private final int id;
     private int columns = -1;
-    private final ITextComponent[] headers;
-    private final ArrayList<ITextComponent[]> rows = new ArrayList<>();
+    private final TextComponent[] headers;
+    private final ArrayList<TextComponent[]> rows = new ArrayList<>();
     private int additional;
 
-    public TableBuilder( int id, @Nonnull ITextComponent... headers )
+    public TableBuilder( int id, @Nonnull TextComponent... headers )
     {
         if( id < 0 ) throw new IllegalArgumentException( "ID must be positive" );
         this.id = id;
@@ -45,13 +45,13 @@ public class TableBuilder
     {
         if( id < 0 ) throw new IllegalArgumentException( "ID must be positive" );
         this.id = id;
-        this.headers = new ITextComponent[headers.length];
+        this.headers = new TextComponent[headers.length];
         this.columns = headers.length;
 
         for( int i = 0; i < headers.length; i++ ) this.headers[i] = ChatHelpers.header( headers[i] );
     }
 
-    public void row( @Nonnull ITextComponent... row )
+    public void row( @Nonnull TextComponent... row )
     {
         if( columns == -1 ) columns = row.length;
         if( row.length != columns ) throw new IllegalArgumentException( "Row is the incorrect length" );
@@ -85,13 +85,13 @@ public class TableBuilder
     }
 
     @Nullable
-    public ITextComponent[] getHeaders()
+    public TextComponent[] getHeaders()
     {
         return headers;
     }
 
     @Nonnull
-    public List<ITextComponent[]> getRows()
+    public List<TextComponent[]> getRows()
     {
         return rows;
     }
@@ -115,12 +115,12 @@ public class TableBuilder
         }
     }
 
-    public void display( ICommandSender source )
+    public void display( ServerCommandSource source )
     {
         if( CommandUtils.isPlayer( source ) )
         {
             trim( 18 );
-            ComputerCraft.sendToPlayer( (EntityPlayerMP) source, new ChatTableClientMessage( this ) );
+            ComputerCraft.sendToPlayer( (ServerPlayerEntity) source.getEntity(), new ChatTableClientMessage( this ) );
         }
         else
         {

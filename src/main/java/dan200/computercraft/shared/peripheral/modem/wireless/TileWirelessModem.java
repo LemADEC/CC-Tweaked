@@ -8,15 +8,15 @@ package dan200.computercraft.shared.peripheral.modem.wireless;
 
 import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.api.peripheral.IPeripheral;
-import dan200.computercraft.shared.peripheral.PeripheralType;
-import dan200.computercraft.shared.peripheral.common.BlockPeripheral;
-import dan200.computercraft.shared.peripheral.common.BlockPeripheralVariant;
 import dan200.computercraft.shared.peripheral.modem.ModemPeripheral;
 import dan200.computercraft.shared.peripheral.modem.ModemState;
 import dan200.computercraft.shared.peripheral.modem.TileModemBase;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.util.EnumFacing;
+import dan200.computercraft.shared.util.NamedBlockEntityType;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.entity.BlockEntityType;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
@@ -24,15 +24,23 @@ import javax.annotation.Nonnull;
 
 public class TileWirelessModem extends TileModemBase
 {
-    // Statics
+    public static final NamedBlockEntityType<TileWirelessModem> FACTORY_NORMAL = NamedBlockEntityType.create(
+        new Identifier( ComputerCraft.MOD_ID, "wireless_modem_normal" ),
+        f -> new TileWirelessModem( f, false )
+    );
+
+    public static final NamedBlockEntityType<TileWirelessModem> FACTORY_ADVANCED = NamedBlockEntityType.create(
+        new Identifier( ComputerCraft.MOD_ID, "wireless_modem_advanced" ),
+        f -> new TileWirelessModem( f, true )
+    );
 
     private static class Peripheral extends WirelessModemPeripheral
     {
-        private TileModemBase m_entity;
+        private final TileWirelessModem m_entity;
 
-        public Peripheral( TileModemBase entity )
+        Peripheral( TileWirelessModem entity )
         {
-            super( new ModemState(), false );
+            super( new ModemState(), entity.advanced );
             m_entity = entity;
         }
 
@@ -47,108 +55,84 @@ public class TileWirelessModem extends TileModemBase
         @Override
         public Vec3d getPosition()
         {
-            BlockPos pos = m_entity.getPos().offset( m_entity.getCachedDirection() );
+            BlockPos pos = m_entity.getPos().offset( m_entity.m_direction );
             return new Vec3d( pos.getX(), pos.getY(), pos.getZ() );
         }
 
         @Override
         public boolean equals( IPeripheral other )
         {
-            if( other instanceof Peripheral )
-            {
-                Peripheral otherModem = (Peripheral) other;
-                return otherModem.m_entity == m_entity;
-            }
-            return false;
+            return this == other || (other instanceof Peripheral && m_entity == ((Peripheral) other).m_entity);
         }
     }
 
-    // Members
+    private final boolean advanced;
 
-    private boolean m_hasDirection = false;
+    private boolean m_directionCorrect = false;
+    private Direction m_direction = Direction.DOWN;
 
-    public TileWirelessModem()
+    public TileWirelessModem( BlockEntityType<? extends TileModemBase> type, boolean advanced )
     {
-        m_dir = EnumFacing.DOWN;
+        super( type );
+        this.advanced = advanced;
     }
 
+    /*
     @Override
     public void onLoad()
     {
         super.onLoad();
         updateDirection();
     }
+    */
 
     @Override
-    public void updateContainingBlockInfo()
+    public void markDirty()
     {
-        m_hasDirection = false;
-    }
-
-    @Override
-    public void update()
-    {
-        super.update();
-        updateDirection();
-    }
-
-    private void updateDirection()
-    {
-        if( !m_hasDirection )
+        super.markDirty();
+        if( world != null )
         {
-            m_hasDirection = true;
-            m_dir = getDirection();
-        }
-    }
-
-    @Override
-    public EnumFacing getDirection()
-    {
-        // Wireless Modem
-        IBlockState state = getBlockState();
-        switch( state.getValue( BlockPeripheral.Properties.VARIANT ) )
-        {
-            case WirelessModemDownOff:
-            case WirelessModemDownOn:
-            {
-                return EnumFacing.DOWN;
-            }
-            case WirelessModemUpOff:
-            case WirelessModemUpOn:
-            {
-                return EnumFacing.UP;
-            }
-            default:
-            {
-                return state.getValue( BlockPeripheral.Properties.FACING );
-            }
-        }
-    }
-
-    @Override
-    public void setDirection( EnumFacing dir )
-    {
-        // Wireless Modem
-        if( dir == EnumFacing.UP )
-        {
-            setBlockState( getBlockState()
-                .withProperty( BlockPeripheral.Properties.VARIANT, BlockPeripheralVariant.WirelessModemUpOff )
-                .withProperty( BlockPeripheral.Properties.FACING, EnumFacing.NORTH )
-            );
-        }
-        else if( dir == EnumFacing.DOWN )
-        {
-            setBlockState( getBlockState()
-                .withProperty( BlockPeripheral.Properties.VARIANT, BlockPeripheralVariant.WirelessModemDownOff )
-                .withProperty( BlockPeripheral.Properties.FACING, EnumFacing.NORTH )
-            );
+            m_directionCorrect = true;
+            m_direction = getDirection();
         }
         else
         {
-            setBlockState( getBlockState()
-                .withProperty( BlockPeripheral.Properties.VARIANT, BlockPeripheralVariant.WirelessModemOff )
-                .withProperty( BlockPeripheral.Properties.FACING, dir )
-            );
+            m_directionCorrect = false;
+        }
+    }
+
+    @Override
+    public void resetBlock()
+    {
+        super.resetBlock();
+        m_directionCorrect = false;
+    }
+
+    @Override
+    public void tick()
+    {
+        super.tick();
+        if( !m_directionCorrect )
+        {
+            m_directionCorrect = true;
+            m_direction = getDirection();
+        }
+    }
+
+    @Override
+    public Direction getDirection()
+    {
+        return getCachedState().get( BlockWirelessModem.FACING );
+    }
+
+    @Override
+    protected void updateBlockState()
+    {
+        boolean on = m_modem.getModemState().isOpen();
+        BlockState state = getCachedState();
+        if( state.get( BlockWirelessModem.ON ) != on )
+        {
+            getWorld().setBlockState( getPos(), state.with( BlockWirelessModem.ON, on ) );
         }
     }
 
@@ -156,11 +140,5 @@ public class TileWirelessModem extends TileModemBase
     protected ModemPeripheral createPeripheral()
     {
         return new Peripheral( this );
-    }
-
-    @Override
-    public boolean shouldRefresh( World world, BlockPos pos, @Nonnull IBlockState oldState, @Nonnull IBlockState newState )
-    {
-        return super.shouldRefresh( world, pos, oldState, newState ) || ComputerCraft.Blocks.peripheral.getPeripheralType( newState ) != PeripheralType.WirelessModem;
     }
 }

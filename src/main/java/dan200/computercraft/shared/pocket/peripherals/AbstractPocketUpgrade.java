@@ -7,29 +7,35 @@
 package dan200.computercraft.shared.pocket.peripherals;
 
 import dan200.computercraft.api.pocket.IPocketUpgrade;
+import net.minecraft.item.ItemProvider;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.Identifier;
 
 import javax.annotation.Nonnull;
 
 public abstract class AbstractPocketUpgrade implements IPocketUpgrade
 {
-    private final ResourceLocation id;
+    private final Identifier identifier;
     private final String adjective;
     private final ItemStack stack;
 
-    protected AbstractPocketUpgrade( ResourceLocation id, String adjective, ItemStack stack )
+    protected AbstractPocketUpgrade( Identifier identifier, String adjective, ItemStack stack )
     {
-        this.id = id;
+        this.identifier = identifier;
         this.adjective = adjective;
         this.stack = stack;
     }
 
+    protected AbstractPocketUpgrade( Identifier identifier, String adjective, ItemProvider item )
+    {
+        this( identifier, adjective, new ItemStack( item ) );
+    }
+
     @Nonnull
     @Override
-    public final ResourceLocation getUpgradeID()
+    public final Identifier getUpgradeID()
     {
-        return id;
+        return identifier;
     }
 
     @Nonnull

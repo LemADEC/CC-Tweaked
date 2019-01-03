@@ -6,31 +6,29 @@
 
 package dan200.computercraft.client.gui;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.client.gui.widgets.WidgetTerminal;
+import dan200.computercraft.client.gui.widgets.WidgetWrapper;
 import dan200.computercraft.shared.computer.core.ClientComputer;
 import dan200.computercraft.shared.computer.core.ComputerFamily;
 import dan200.computercraft.shared.turtle.blocks.TileTurtle;
 import dan200.computercraft.shared.turtle.inventory.ContainerTurtle;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.inventory.GuiContainer;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.util.ResourceLocation;
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.input.Mouse;
+import net.minecraft.client.gui.ContainerGui;
+import net.minecraft.util.Identifier;
 
-import java.io.IOException;
-
-public class GuiTurtle extends GuiContainer
+public class GuiTurtle extends ContainerGui
 {
-    private static final ResourceLocation BACKGROUND = new ResourceLocation( "computercraft", "textures/gui/turtle.png" );
-    private static final ResourceLocation BACKGROUND_ADVANCED = new ResourceLocation( "computercraft", "textures/gui/turtle_advanced.png" );
+    private static final Identifier BACKGROUND_NORMAL = new Identifier( "computercraft", "textures/gui/turtle_normal.png" );
+    private static final Identifier BACKGROUND_ADVANCED = new Identifier( "computercraft", "textures/gui/turtle_advanced.png" );
 
     private ContainerTurtle m_container;
 
     private final ComputerFamily m_family;
     private final ClientComputer m_computer;
-    private WidgetTerminal m_terminalGui;
+
+    private WidgetTerminal terminal;
+    private WidgetWrapper terminalWrapper;
 
     public GuiTurtle( TileTurtle turtle, ContainerTurtle container )
     {
@@ -40,115 +38,81 @@ public class GuiTurtle extends GuiContainer
         m_family = turtle.getFamily();
         m_computer = turtle.getClientComputer();
 
-        xSize = 254;
-        ySize = 217;
+        containerWidth = 254;
+        containerHeight = 217;
     }
 
     @Override
-    public void initGui()
+    protected void onInitialized()
     {
-        super.initGui();
-        Keyboard.enableRepeatEvents( true );
-        m_terminalGui = new WidgetTerminal(
-            (width - xSize) / 2 + 8,
-            (height - ySize) / 2 + 8,
+        super.onInitialized();
+        client.keyboard.enableRepeatEvents( true );
+
+        int termPxWidth = ComputerCraft.terminalWidth_turtle * FixedWidthFontRenderer.FONT_WIDTH;
+        int termPxHeight = ComputerCraft.terminalHeight_turtle * FixedWidthFontRenderer.FONT_HEIGHT;
+
+        terminal = new WidgetTerminal(
+            client, () -> m_computer,
             ComputerCraft.terminalWidth_turtle,
             ComputerCraft.terminalHeight_turtle,
-            () -> m_computer,
             2, 2, 2, 2
         );
-        m_terminalGui.setAllowFocusLoss( false );
+        terminalWrapper = new WidgetWrapper( terminal, 2 + 8 + left, 2 + 8 + top, termPxWidth, termPxHeight );
+
+        listeners.add( terminalWrapper );
+        setFocused( terminalWrapper );
     }
 
     @Override
-    public void onGuiClosed()
+    public void onClosed()
     {
-        super.onGuiClosed();
-        Keyboard.enableRepeatEvents( false );
+        listeners.remove( terminal );
+        terminal = null;
+        client.keyboard.enableRepeatEvents( false );
     }
 
     @Override
-    public void updateScreen()
+    public void update()
     {
-        super.updateScreen();
-        m_terminalGui.update();
+        super.update();
+        terminal.update();
     }
 
-    @Override
-    protected void keyTyped( char c, int k ) throws IOException
+    private void drawSelectionSlot( boolean advanced )
     {
-        if( k == 1 )
-        {
-            super.keyTyped( c, k );
-        }
-        else
-        {
-            if( m_terminalGui.onKeyTyped( c, k ) ) keyHandled = true;
-        }
-    }
-
-    @Override
-    protected void mouseClicked( int x, int y, int button ) throws IOException
-    {
-        super.mouseClicked( x, y, button );
-        m_terminalGui.mouseClicked( x, y, button );
-    }
-
-    @Override
-    public void handleMouseInput() throws IOException
-    {
-        super.handleMouseInput();
-        int x = Mouse.getEventX() * this.width / mc.displayWidth;
-        int y = this.height - Mouse.getEventY() * this.height / mc.displayHeight - 1;
-        m_terminalGui.handleMouseInput( x, y );
-    }
-
-    @Override
-    public void handleKeyboardInput() throws IOException
-    {
-        super.handleKeyboardInput();
-        if( m_terminalGui.onKeyboardInput() ) keyHandled = true;
-    }
-
-    protected void drawSelectionSlot( boolean advanced )
-    {
-        int x = (width - xSize) / 2;
-        int y = (height - ySize) / 2;
 
         // Draw selection slot
         int slot = m_container.getSelectedSlot();
         if( slot >= 0 )
         {
-            GlStateManager.color( 1.0F, 1.0F, 1.0F, 1.0F );
+            GlStateManager.color4f( 1.0F, 1.0F, 1.0F, 1.0F );
             int slotX = (slot % 4);
             int slotY = (slot / 4);
-            this.mc.getTextureManager().bindTexture( advanced ? BACKGROUND_ADVANCED : BACKGROUND );
-            drawTexturedModalRect( x + m_container.m_turtleInvStartX - 2 + slotX * 18, y + m_container.m_playerInvStartY - 2 + slotY * 18, 0, 217, 24, 24 );
+            client.getTextureManager().bindTexture( advanced ? BACKGROUND_ADVANCED : BACKGROUND_NORMAL );
+            drawTexturedRect( left + m_container.m_turtleInvStartX - 2 + slotX * 18, top + m_container.m_playerInvStartY - 2 + slotY * 18, 0, 217, 24, 24 );
         }
     }
 
     @Override
-    protected void drawGuiContainerBackgroundLayer( float f, int mouseX, int mouseY )
+    protected void drawBackground( float f, int mouseX, int mouseY )
     {
         // Draw term
-        boolean advanced = (m_family == ComputerFamily.Advanced);
-        m_terminalGui.draw( Minecraft.getMinecraft(), 0, 0, mouseX, mouseY );
+        terminal.draw( terminalWrapper.getX(), terminalWrapper.getY() );
 
         // Draw border/inventory
-        GlStateManager.color( 1.0F, 1.0F, 1.0F, 1.0F );
-        this.mc.getTextureManager().bindTexture( advanced ? BACKGROUND_ADVANCED : BACKGROUND );
-        int x = (width - xSize) / 2;
-        int y = (height - ySize) / 2;
-        drawTexturedModalRect( x, y, 0, 0, xSize, ySize );
+        GlStateManager.color4f( 1.0F, 1.0F, 1.0F, 1.0F );
+        boolean advanced = m_family == ComputerFamily.Advanced;
+        client.getTextureManager().bindTexture( advanced ? BACKGROUND_ADVANCED : BACKGROUND_NORMAL );
+        drawTexturedRect( left, top, 0, 0, containerWidth, containerHeight );
 
         drawSelectionSlot( advanced );
     }
 
     @Override
-    public void drawScreen( int mouseX, int mouseY, float partialTicks )
+    public void draw( int mouseX, int mouseY, float partialTicks )
     {
-        drawDefaultBackground();
-        super.drawScreen( mouseX, mouseY, partialTicks );
-        renderHoveredToolTip( mouseX, mouseY );
+        drawBackground();
+        super.draw( mouseX, mouseY, partialTicks );
+        drawMousoverTooltip( mouseX, mouseY );
     }
 }

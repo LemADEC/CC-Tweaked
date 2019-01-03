@@ -6,14 +6,10 @@
 
 package dan200.computercraft.shared.network;
 
-import dan200.computercraft.ComputerCraft;
-import io.netty.buffer.ByteBuf;
-import net.minecraft.client.Minecraft;
-import net.minecraft.network.PacketBuffer;
-import net.minecraft.util.IThreadListener;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
-import net.minecraftforge.fml.relauncher.Side;
+import net.fabricmc.fabric.networking.CustomPayloadPacketRegistry;
+import net.fabricmc.fabric.networking.PacketContext;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.PacketByteBuf;
 
 import javax.annotation.Nonnull;
 import java.util.function.BiConsumer;
@@ -24,15 +20,17 @@ import java.util.function.Supplier;
  *
  * @see dan200.computercraft.shared.network.client
  * @see dan200.computercraft.shared.network.server
+ * @see CustomPayloadPacketRegistry
  */
-public interface NetworkMessage extends IMessage
+public interface NetworkMessage
 {
     /**
      * The unique identifier for this packet type
      *
      * @return This packet type's identifier
      */
-    int getId();
+    @Nonnull
+    Identifier getId();
 
     /**
      * Write this packet to a buffer.
@@ -41,7 +39,7 @@ public interface NetworkMessage extends IMessage
      *
      * @param buf The buffer to write data to.
      */
-    void toBytes( @Nonnull PacketBuffer buf );
+    void toBytes( @Nonnull PacketByteBuf buf );
 
     /**
      * Read this packet from a buffer.
@@ -50,69 +48,54 @@ public interface NetworkMessage extends IMessage
      *
      * @param buf The buffer to read data from.
      */
-    void fromBytes( @Nonnull PacketBuffer buf );
-
-    @Override
-    default void fromBytes( ByteBuf buf )
-    {
-        fromBytes( new PacketBuffer( buf ) );
-    }
-
-    @Override
-    default void toBytes( ByteBuf buf )
-    {
-        toBytes( new PacketBuffer( buf ) );
-    }
+    void fromBytes( @Nonnull PacketByteBuf buf );
 
     /**
      * Register a packet, and a thread-safe handler for it.
      *
-     * @param side    The side to register this packet handler under
-     * @param factory The factory for this type of packet.
-     * @param handler The handler for this type of packet. Note, this may be called on any thread,
-     *                and so should be thread-safe.
+     * @param registry The registry to register this packet handler under
+     * @param factory  The factory for this type of packet.
+     * @param handler  The handler for this type of packet. Note, this may be called on any thread,
+     *                 and so should be thread-safe.
      */
-    @SuppressWarnings( "unchecked" )
     static <T extends NetworkMessage> void register(
-        Side side,
+        CustomPayloadPacketRegistry registry,
         Supplier<T> factory,
-        BiConsumer<MessageContext, T> handler
+        BiConsumer<PacketContext, T> handler
     )
     {
-        T instance = factory.get();
-        ComputerCraft.networkWrapper.registerMessage( ( packet, ctx ) -> {
-            handler.accept( ctx, (T) packet );
-            return null;
-        }, instance.getClass(), instance.getId(), side );
+        registry.register( factory.get().getId(), ( ctx, buf ) -> {
+            T packet = factory.get();
+            packet.fromBytes( buf );
+            handler.accept( ctx, packet );
+        } );
     }
 
     /**
      * Register packet, and a thread-unsafe handler for it.
      *
-     * @param side    The side to register this packet handler under
-     * @param factory The factory for this type of packet.
-     * @param handler The handler for this type of packet. This will be called on the "main"
-     *                thread (either client or server).
+     * @param registry The registry to register this packet handler under
+     * @param factory  The factory for this type of packet.
+     * @param handler  The handler for this type of packet. This will be called on the "main"
+     *                 thread (either client or server).
      */
-    @SuppressWarnings( "unchecked" )
     static <T extends NetworkMessage> void registerMainThread(
-        Side side,
+        CustomPayloadPacketRegistry registry,
         Supplier<T> factory,
-        BiConsumer<MessageContext, T> handler
+        BiConsumer<PacketContext, T> handler
     )
     {
-        T instance = factory.get();
-        ComputerCraft.networkWrapper.registerMessage( ( packet, ctx ) -> {
-            IThreadListener listener = side == Side.CLIENT ? Minecraft.getMinecraft() : ctx.getServerHandler().player.server;
-            if( listener.isCallingFromMinecraftThread() )
+        registry.register( factory.get().getId(), ( ctx, buf ) -> {
+            T packet = factory.get();
+            packet.fromBytes( buf );
+            if( ctx.getTaskQueue().isMainThread() )
             {
-                handler.accept( ctx, (T) packet );
+                handler.accept( ctx, packet );
             }
             else
             {
-                listener.addScheduledTask( () -> handler.accept( ctx, (T) packet ) );
+                ctx.getTaskQueue().execute( () -> handler.accept( ctx, packet ) );
             }
-            return null;
-        }, instance.getClass(), instance.getId(), side );
+        } );
     }
 }

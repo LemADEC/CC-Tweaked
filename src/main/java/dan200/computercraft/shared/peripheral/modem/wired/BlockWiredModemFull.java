@@ -6,98 +6,31 @@
 
 package dan200.computercraft.shared.peripheral.modem.wired;
 
-import dan200.computercraft.ComputerCraft;
-import dan200.computercraft.shared.peripheral.PeripheralType;
-import dan200.computercraft.shared.peripheral.common.BlockPeripheralBase;
-import dan200.computercraft.shared.peripheral.common.TilePeripheralBase;
-import net.minecraft.block.properties.PropertyBool;
-import net.minecraft.block.state.BlockStateContainer;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.IBlockAccess;
+import dan200.computercraft.shared.common.BlockGeneric;
+import dan200.computercraft.shared.common.TileGeneric;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.entity.BlockEntityType;
+import net.minecraft.state.StateFactory;
+import net.minecraft.state.property.BooleanProperty;
 
-import javax.annotation.Nonnull;
-
-public class BlockWiredModemFull extends BlockPeripheralBase
+public class BlockWiredModemFull extends BlockGeneric
 {
-    // Statics
+    public static final BooleanProperty MODEM_ON = BooleanProperty.create( "modem" );
+    public static final BooleanProperty PERIPHERAL_ON = BooleanProperty.create( "peripheral" );
 
-    public static class Properties
+    public BlockWiredModemFull( Settings settings, BlockEntityType<? extends TileGeneric> type )
     {
-        public static final PropertyBool MODEM_ON = PropertyBool.create( "modem" );
-        public static final PropertyBool PERIPHERAL_ON = PropertyBool.create( "peripheral" );
-    }
-
-    // Members
-
-    public BlockWiredModemFull()
-    {
-        setHardness( 1.5f );
-        setTranslationKey( "computercraft:wired_modem_full" );
-        setCreativeTab( ComputerCraft.mainCreativeTab );
-        setDefaultState( blockState.getBaseState()
-            .withProperty( Properties.MODEM_ON, false )
-            .withProperty( Properties.PERIPHERAL_ON, false )
+        super( settings, type );
+        setDefaultState( getStateFactory().getDefaultState()
+            .with( MODEM_ON, false )
+            .with( PERIPHERAL_ON, false )
         );
     }
 
     @Override
-    protected IBlockState getDefaultBlockState( PeripheralType type, EnumFacing placedSide )
+    protected void appendProperties( StateFactory.Builder<Block, BlockState> builder )
     {
-        return getDefaultState();
-    }
-
-    @Nonnull
-    @Override
-    protected BlockStateContainer createBlockState()
-    {
-        return new BlockStateContainer( this,
-            Properties.MODEM_ON,
-            Properties.PERIPHERAL_ON
-        );
-    }
-
-    @Override
-    public int getMetaFromState( IBlockState state )
-    {
-        return 0;
-    }
-
-    @Nonnull
-    @Override
-    @Deprecated
-    public IBlockState getActualState( @Nonnull IBlockState state, IBlockAccess world, BlockPos pos )
-    {
-        TileEntity te = world.getTileEntity( pos );
-        if( te instanceof TileWiredModemFull )
-        {
-            TileWiredModemFull modem = (TileWiredModemFull) te;
-            int anim = modem.getAnim();
-            state = state
-                .withProperty( Properties.MODEM_ON, (anim & 1) != 0 )
-                .withProperty( Properties.PERIPHERAL_ON, (anim & 2) != 0 );
-        }
-
-        return state;
-    }
-
-    @Override
-    public PeripheralType getPeripheralType( int damage )
-    {
-        return PeripheralType.WiredModemFull;
-    }
-
-    @Override
-    public PeripheralType getPeripheralType( IBlockState state )
-    {
-        return PeripheralType.WiredModemFull;
-    }
-
-    @Override
-    public TilePeripheralBase createTile( PeripheralType type )
-    {
-        return new TileWiredModemFull();
+        builder.with( MODEM_ON, PERIPHERAL_ON );
     }
 }

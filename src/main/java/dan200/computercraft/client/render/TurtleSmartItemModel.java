@@ -9,34 +9,34 @@ package dan200.computercraft.client.render;
 import com.google.common.base.Objects;
 import dan200.computercraft.api.turtle.ITurtleUpgrade;
 import dan200.computercraft.api.turtle.TurtleSide;
-import dan200.computercraft.shared.computer.core.ComputerFamily;
-import dan200.computercraft.shared.turtle.items.ItemTurtleBase;
+import dan200.computercraft.shared.turtle.items.ItemTurtle;
 import dan200.computercraft.shared.util.Holiday;
 import dan200.computercraft.shared.util.HolidayUtil;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.block.model.*;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.IResourceManager;
-import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.block.BlockState;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.render.model.BakedModel;
+import net.minecraft.client.render.model.BakedModelManager;
+import net.minecraft.client.render.model.BakedQuad;
+import net.minecraft.client.render.model.json.ModelItemPropertyOverrideList;
+import net.minecraft.client.render.model.json.ModelTransformation;
+import net.minecraft.client.texture.Sprite;
+import net.minecraft.client.util.ModelIdentifier;
+import net.minecraft.client.util.math.Matrix4f;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.math.Direction;
 import net.minecraft.world.World;
-import net.minecraftforge.client.resource.IResourceType;
-import net.minecraftforge.client.resource.ISelectiveResourceReloadListener;
-import net.minecraftforge.client.resource.VanillaResourceType;
 import org.apache.commons.lang3.tuple.Pair;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.vecmath.Matrix4f;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.function.Predicate;
+import java.util.Random;
 
-public class TurtleSmartItemModel implements IBakedModel, ISelectiveResourceReloadListener
+public class TurtleSmartItemModel implements BakedModel
 {
     private static final Matrix4f s_identity, s_flip;
 
@@ -47,23 +47,21 @@ public class TurtleSmartItemModel implements IBakedModel, ISelectiveResourceRelo
 
         s_flip = new Matrix4f();
         s_flip.setIdentity();
-        s_flip.m11 = -1; // Flip on the y axis
-        s_flip.m13 = 1; // Models go from (0,0,0) to (1,1,1), so push back up.
+        s_flip.set( 1, 1, -1 ); // Flip on the y axis
+        s_flip.set( 1, 3, 1 ); // Models go from (0,0,0) to (1,1,1), so push back up.
     }
 
     private static class TurtleModelCombination
     {
-        public final ComputerFamily m_family;
         public final boolean m_colour;
         public final ITurtleUpgrade m_leftUpgrade;
         public final ITurtleUpgrade m_rightUpgrade;
-        public final ResourceLocation m_overlay;
+        public final Identifier m_overlay;
         public final boolean m_christmas;
         public final boolean m_flip;
 
-        public TurtleModelCombination( ComputerFamily family, boolean colour, ITurtleUpgrade leftUpgrade, ITurtleUpgrade rightUpgrade, ResourceLocation overlay, boolean christmas, boolean flip )
+        public TurtleModelCombination( boolean colour, ITurtleUpgrade leftUpgrade, ITurtleUpgrade rightUpgrade, Identifier overlay, boolean christmas, boolean flip )
         {
-            m_family = family;
             m_colour = colour;
             m_leftUpgrade = leftUpgrade;
             m_rightUpgrade = rightUpgrade;
@@ -79,8 +77,7 @@ public class TurtleSmartItemModel implements IBakedModel, ISelectiveResourceRelo
             if( !(other instanceof TurtleModelCombination) ) return false;
 
             TurtleModelCombination otherCombo = (TurtleModelCombination) other;
-            return otherCombo.m_family == m_family &&
-                otherCombo.m_colour == m_colour &&
+            return otherCombo.m_colour == m_colour &&
                 otherCombo.m_leftUpgrade == m_leftUpgrade &&
                 otherCombo.m_rightUpgrade == m_rightUpgrade &&
                 Objects.equal( otherCombo.m_overlay, m_overlay ) &&
@@ -92,8 +89,7 @@ public class TurtleSmartItemModel implements IBakedModel, ISelectiveResourceRelo
         public int hashCode()
         {
             final int prime = 31;
-            int result = 1;
-            result = prime * result + m_family.hashCode();
+            int result = 0;
             result = prime * result + (m_colour ? 1 : 0);
             result = prime * result + (m_leftUpgrade != null ? m_leftUpgrade.hashCode() : 0);
             result = prime * result + (m_rightUpgrade != null ? m_rightUpgrade.hashCode() : 0);
@@ -104,37 +100,41 @@ public class TurtleSmartItemModel implements IBakedModel, ISelectiveResourceRelo
         }
     }
 
-    private HashMap<TurtleModelCombination, IBakedModel> m_cachedModels;
-    private ItemOverrideList m_overrides;
-    private final TurtleModelCombination m_defaultCombination;
+    private HashMap<TurtleModelCombination, BakedModel> m_cachedModels;
+    private ModelItemPropertyOverrideList m_overrides;
 
-    public TurtleSmartItemModel()
+    private final BakedModel normalModel;
+    private final BakedModel colouredModel;
+
+    public TurtleSmartItemModel( BakedModel normalModel, BakedModel colouredModel )
     {
+        this.normalModel = normalModel;
+        this.colouredModel = colouredModel;
+
         m_cachedModels = new HashMap<>();
-        m_defaultCombination = new TurtleModelCombination( ComputerFamily.Normal, false, null, null, null, false, false );
-        m_overrides = new ItemOverrideList( new ArrayList<>() )
+        m_overrides = new ModelItemPropertyOverrideList( null, null, x -> null, Collections.emptyList() )
         {
             @Nonnull
             @Override
-            public IBakedModel handleItemState( @Nonnull IBakedModel originalModel, @Nonnull ItemStack stack, @Nullable World world, @Nullable EntityLivingBase entity )
+            public BakedModel apply( @Nonnull BakedModel originalModel, @Nonnull ItemStack stack, @Nullable World world, @Nullable LivingEntity entity )
             {
-                ItemTurtleBase turtle = (ItemTurtleBase) stack.getItem();
-                ComputerFamily family = turtle.getFamily( stack );
+                ItemTurtle turtle = (ItemTurtle) stack.getItem();
                 int colour = turtle.getColour( stack );
                 ITurtleUpgrade leftUpgrade = turtle.getUpgrade( stack, TurtleSide.Left );
                 ITurtleUpgrade rightUpgrade = turtle.getUpgrade( stack, TurtleSide.Right );
-                ResourceLocation overlay = turtle.getOverlay( stack );
+                Identifier overlay = turtle.getOverlay( stack );
                 boolean christmas = HolidayUtil.getCurrentHoliday() == Holiday.Christmas;
                 String label = turtle.getLabel( stack );
                 boolean flip = label != null && (label.equals( "Dinnerbone" ) || label.equals( "Grumm" ));
-                TurtleModelCombination combo = new TurtleModelCombination( family, colour != -1, leftUpgrade, rightUpgrade, overlay, christmas, flip );
+
+                TurtleModelCombination combo = new TurtleModelCombination( colour != -1, leftUpgrade, rightUpgrade, overlay, christmas, flip );
                 if( m_cachedModels.containsKey( combo ) )
                 {
                     return m_cachedModels.get( combo );
                 }
                 else
                 {
-                    IBakedModel model = buildModel( combo );
+                    BakedModel model = buildModel( combo );
                     m_cachedModels.put( combo, model );
                     return model;
                 }
@@ -142,30 +142,16 @@ public class TurtleSmartItemModel implements IBakedModel, ISelectiveResourceRelo
         };
     }
 
-    @Nonnull
-    @Override
-    public ItemOverrideList getOverrides()
+    private BakedModel buildModel( TurtleModelCombination combo )
     {
-        return m_overrides;
-    }
-
-    @Override
-    public void onResourceManagerReload( @Nonnull IResourceManager resourceManager, @Nonnull Predicate<IResourceType> resourcePredicate )
-    {
-        if( resourcePredicate.test( VanillaResourceType.MODELS ) ) m_cachedModels.clear();
-    }
-
-    private IBakedModel buildModel( TurtleModelCombination combo )
-    {
-        Minecraft mc = Minecraft.getMinecraft();
-        ModelManager modelManager = mc.getRenderItem().getItemModelMesher().getModelManager();
-        ModelResourceLocation baseModelLocation = TileEntityTurtleRenderer.getTurtleModel( combo.m_family, combo.m_colour );
-        ModelResourceLocation overlayModelLocation = TileEntityTurtleRenderer.getTurtleOverlayModel( combo.m_family, combo.m_overlay, combo.m_christmas );
-        IBakedModel baseModel = modelManager.getModel( baseModelLocation );
-        IBakedModel overlayModel = (overlayModelLocation != null) ? modelManager.getModel( overlayModelLocation ) : null;
+        MinecraftClient mc = MinecraftClient.getInstance();
+        BakedModelManager modelManager = mc.getItemRenderer().getModelMap().getModelManager();
+        ModelIdentifier overlayModelLocation = TileEntityTurtleRenderer.getTurtleOverlayModel( combo.m_overlay, combo.m_christmas );
+        BakedModel baseModel = combo.m_colour ? colouredModel : this.normalModel;
+        BakedModel overlayModel = (overlayModelLocation != null) ? modelManager.getModel( overlayModelLocation ) : null;
         Matrix4f transform = combo.m_flip ? s_flip : s_identity;
-        Pair<IBakedModel, Matrix4f> leftModel = (combo.m_leftUpgrade != null) ? combo.m_leftUpgrade.getModel( null, TurtleSide.Left ) : null;
-        Pair<IBakedModel, Matrix4f> rightModel = (combo.m_rightUpgrade != null) ? combo.m_rightUpgrade.getModel( null, TurtleSide.Right ) : null;
+        Pair<BakedModel, Matrix4f> leftModel = (combo.m_leftUpgrade != null) ? combo.m_leftUpgrade.getModel( null, TurtleSide.Left ) : null;
+        Pair<BakedModel, Matrix4f> rightModel = (combo.m_rightUpgrade != null) ? combo.m_rightUpgrade.getModel( null, TurtleSide.Right ) : null;
         if( leftModel != null && rightModel != null )
         {
             return new TurtleMultiModel( baseModel, overlayModel, transform, leftModel.getLeft(), leftModel.getRight(), rightModel.getLeft(), rightModel.getRight() );
@@ -188,53 +174,49 @@ public class TurtleSmartItemModel implements IBakedModel, ISelectiveResourceRelo
 
     @Nonnull
     @Override
-    public List<BakedQuad> getQuads( IBlockState state, EnumFacing facing, long rand )
+    public List<BakedQuad> getQuads( BlockState state, Direction facing, Random rand )
     {
         return getDefaultModel().getQuads( state, facing, rand );
     }
 
     @Override
-    public boolean isAmbientOcclusion()
+    public boolean useAmbientOcclusion()
     {
-        return getDefaultModel().isAmbientOcclusion();
+        return getDefaultModel().useAmbientOcclusion();
     }
 
     @Override
-    public boolean isGui3d()
+    public boolean hasDepthInGui()
     {
-        return getDefaultModel().isGui3d();
+        return getDefaultModel().hasDepthInGui();
     }
 
     @Override
-    public boolean isBuiltInRenderer()
+    public boolean isBuiltin()
     {
-        return getDefaultModel().isBuiltInRenderer();
+        return getDefaultModel().isBuiltin();
     }
 
-    @Nonnull
     @Override
-    public TextureAtlasSprite getParticleTexture()
+    public Sprite getSprite()
     {
-        return getDefaultModel().getParticleTexture();
+        return null;
     }
 
-    @Nonnull
     @Override
-    @Deprecated
-    public ItemCameraTransforms getItemCameraTransforms()
+    public ModelTransformation getTransformation()
     {
-        return getDefaultModel().getItemCameraTransforms();
+        return getDefaultModel().getTransformation();
     }
 
-    private IBakedModel getDefaultModel()
+    @Override
+    public ModelItemPropertyOverrideList getItemPropertyOverrides()
     {
-        IBakedModel model = m_cachedModels.get( m_defaultCombination );
-        if( model == null )
-        {
-            model = buildModel( m_defaultCombination );
-            m_cachedModels.put( m_defaultCombination, model );
-        }
+        return m_overrides;
+    }
 
-        return model;
+    private BakedModel getDefaultModel()
+    {
+        return normalModel;
     }
 }

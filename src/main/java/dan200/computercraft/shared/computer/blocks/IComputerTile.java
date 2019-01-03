@@ -10,9 +10,9 @@ import dan200.computercraft.shared.computer.core.ComputerFamily;
 
 public interface IComputerTile
 {
-    int getComputerID();
+    int getComputerId();
 
-    void setComputerID( int id );
+    void setComputerId( int id );
 
     String getLabel();
 

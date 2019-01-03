@@ -6,10 +6,10 @@
 
 package dan200.computercraft.shared.peripheral.diskdrive;
 
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.Container;
-import net.minecraft.inventory.IInventory;
-import net.minecraft.inventory.Slot;
+import net.minecraft.container.Container;
+import net.minecraft.container.Slot;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
 
 import javax.annotation.Nonnull;
@@ -18,22 +18,22 @@ public class ContainerDiskDrive extends Container
 {
     private final TileDiskDrive m_diskDrive;
 
-    public ContainerDiskDrive( IInventory playerInventory, TileDiskDrive diskDrive )
+    public ContainerDiskDrive( Inventory playerInventory, TileDiskDrive diskDrive )
     {
         m_diskDrive = diskDrive;
-        addSlotToContainer( new Slot( m_diskDrive, 0, 8 + 4 * 18, 35 ) );
+        addSlot( new Slot( m_diskDrive, 0, 8 + 4 * 18, 35 ) );
 
         for( int y = 0; y < 3; y++ )
         {
             for( int x = 0; x < 9; x++ )
             {
-                addSlotToContainer( new Slot( playerInventory, x + y * 9 + 9, 8 + x * 18, 84 + y * 18 ) );
+                addSlot( new Slot( playerInventory, x + y * 9 + 9, 8 + x * 18, 84 + y * 18 ) );
             }
         }
 
         for( int x = 0; x < 9; x++ )
         {
-            addSlotToContainer( new Slot( playerInventory, x, 8 + x * 18, 142 ) );
+            addSlot( new Slot( playerInventory, x, 8 + x * 18, 142 ) );
         }
     }
 
@@ -43,45 +43,41 @@ public class ContainerDiskDrive extends Container
     }
 
     @Override
-    public boolean canInteractWith( @Nonnull EntityPlayer player )
+    public boolean canUse( @Nonnull PlayerEntity player )
     {
-        return m_diskDrive.isUsableByPlayer( player );
+        return m_diskDrive.canPlayerUseInv( player );
     }
 
-    @Nonnull
-    @Override
-    public ItemStack transferStackInSlot( EntityPlayer player, int slotIndex )
+    public ItemStack transferSlot( PlayerEntity payer, int slotIndex )
     {
-        ItemStack extract = ItemStack.EMPTY;
-        Slot slot = inventorySlots.get( slotIndex );
-        if( slot == null || !slot.getHasStack() ) return extract;
+        Slot slot = slotList.get( slotIndex );
+        if( slot == null || !slot.hasStack() ) return ItemStack.EMPTY;
 
-        ItemStack existing = slot.getStack().copy();
-        extract = existing.copy();
+        ItemStack slotStack = slot.getStack();
+        ItemStack result = slotStack.copy();
         if( slotIndex == 0 )
         {
-            if( !mergeItemStack( existing, 1, 37, true ) )
-            {
-                return ItemStack.EMPTY;
-            }
-        }
-        else if( !mergeItemStack( existing, 0, 1, false ) )
-        {
-            return ItemStack.EMPTY;
-        }
-
-        if( existing.isEmpty() )
-        {
-            slot.putStack( ItemStack.EMPTY );
+            // Insert into player inventory
+            if( !insertItem( slotStack, 1, 37, true ) ) return ItemStack.EMPTY;
         }
         else
         {
-            slot.onSlotChanged();
+            // Insert into disk inventory
+            if( !insertItem( slotStack, 0, 1, false ) ) return ItemStack.EMPTY;
         }
 
-        if( existing.getCount() == extract.getCount() ) return ItemStack.EMPTY;
+        // Update the slot
+        if( slotStack.isEmpty() )
+        {
+            slot.setStack( ItemStack.EMPTY );
+        }
+        else
+        {
+            slot.markDirty();
+        }
 
-        slot.onTake( player, existing );
-        return extract;
+        if( slotStack.getAmount() == result.getAmount() ) return ItemStack.EMPTY;
+        slot.onTakeItem( payer, slotStack );
+        return result;
     }
 }

@@ -6,18 +6,20 @@
 
 package dan200.computercraft.shared.network.client;
 
-import dan200.computercraft.shared.network.NetworkMessages;
-import dan200.computercraft.shared.util.NBTUtil;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.network.PacketBuffer;
+import dan200.computercraft.ComputerCraft;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.PacketByteBuf;
 
 import javax.annotation.Nonnull;
 
 public class ComputerTerminalClientMessage extends ComputerClientMessage
 {
-    private NBTTagCompound tag;
+    private static final Identifier ID = new Identifier( ComputerCraft.MOD_ID, "computer_terminal" );
 
-    public ComputerTerminalClientMessage( int instanceId, NBTTagCompound tag )
+    private CompoundTag tag;
+
+    public ComputerTerminalClientMessage( int instanceId, CompoundTag tag )
     {
         super( instanceId );
         this.tag = tag;
@@ -28,27 +30,27 @@ public class ComputerTerminalClientMessage extends ComputerClientMessage
     }
 
     @Override
-    public int getId()
+    public @Nonnull Identifier getId()
     {
-        return NetworkMessages.COMPUTER_TERMINAL_CLIENT_MESSAGE;
+        return ID;
     }
 
-    public NBTTagCompound getTag()
+    public CompoundTag getTag()
     {
         return tag;
     }
 
     @Override
-    public void toBytes( @Nonnull PacketBuffer buf )
+    public void toBytes( @Nonnull PacketByteBuf buf )
     {
         super.toBytes( buf );
         buf.writeCompoundTag( tag ); // TODO: Do we need to compress this?
     }
 
     @Override
-    public void fromBytes( @Nonnull PacketBuffer buf )
+    public void fromBytes( @Nonnull PacketByteBuf buf )
     {
         super.fromBytes( buf );
-        tag = NBTUtil.readCompoundTag( buf );
+        tag = buf.readCompoundTag();
     }
 }

@@ -10,8 +10,8 @@ import com.google.common.base.Preconditions;
 import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.api.redstone.IBundledRedstoneProvider;
 import dan200.computercraft.shared.common.DefaultBundledRedstoneProvider;
-import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.world.World;
 
 import javax.annotation.Nonnull;
@@ -28,14 +28,14 @@ public final class BundledRedstone
         providers.add( provider );
     }
 
-    public static int getDefaultOutput( @Nonnull World world, @Nonnull BlockPos pos, @Nonnull EnumFacing side )
+    public static int getDefaultOutput( @Nonnull World world, @Nonnull BlockPos pos, @Nonnull Direction side )
     {
-        return world.isValid( pos ) ? DefaultBundledRedstoneProvider.getDefaultBundledRedstoneOutput( world, pos, side ) : -1;
+        return World.isValid( pos ) ? DefaultBundledRedstoneProvider.getDefaultBundledRedstoneOutput( world, pos, side ) : -1;
     }
 
-    private static int getUnmaskedOutput( World world, BlockPos pos, EnumFacing side )
+    private static int getUnmaskedOutput( World world, BlockPos pos, Direction side )
     {
-        if( !world.isValid( pos ) ) return -1;
+        if( !World.isValid( pos ) ) return -1;
 
         // Try the providers in order:
         int combinedSignal = -1;
@@ -58,7 +58,7 @@ public final class BundledRedstone
         return combinedSignal;
     }
 
-    public static int getOutput( World world, BlockPos pos, EnumFacing side )
+    public static int getOutput( World world, BlockPos pos, Direction side )
     {
         int signal = getUnmaskedOutput( world, pos, side );
         return signal >= 0 ? signal : 0;

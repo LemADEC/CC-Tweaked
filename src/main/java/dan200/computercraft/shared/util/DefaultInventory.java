@@ -6,50 +6,69 @@
 
 package dan200.computercraft.shared.util;
 
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.inventory.IInventory;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
 
-import javax.annotation.Nonnull;
-
-public interface DefaultInventory extends IInventory
+public interface DefaultInventory extends Inventory
 {
     @Override
-    default int getInventoryStackLimit()
+    default ItemStack takeInvStack( int slot, int count )
+    {
+        ItemStack stack = getInvStack( slot ).split( count );
+        if( !stack.isEmpty() ) markDirty( slot );
+        return stack;
+    }
+
+    @Override
+    default ItemStack removeInvStack( int slot )
+    {
+        ItemStack stack = getInvStack( slot );
+        if( !stack.isEmpty() ) setInvStack( slot, ItemStack.EMPTY );
+        return stack;
+    }
+
+    @Override
+    default int getInvMaxStackAmount()
     {
         return 64;
     }
 
     @Override
-    default void openInventory( @Nonnull EntityPlayer player )
+    default void onInvOpen( PlayerEntity playerEntity )
     {
     }
 
     @Override
-    default void closeInventory( @Nonnull EntityPlayer player )
+    default void onInvClose( PlayerEntity playerEntity )
     {
     }
 
     @Override
-    default boolean isItemValidForSlot( int slot, @Nonnull ItemStack stack )
+    default boolean isValidInvStack( int i, ItemStack itemStack )
     {
         return true;
     }
 
     @Override
-    default int getField( int field )
+    default int getInvProperty( int key )
     {
         return 0;
     }
 
     @Override
-    default void setField( int field, int value )
+    default void setInvProperty( int key, int value )
     {
     }
 
     @Override
-    default int getFieldCount()
+    default int getInvPropertyCount()
     {
         return 0;
+    }
+
+    default void markDirty( int slot )
+    {
+        markDirty();
     }
 }

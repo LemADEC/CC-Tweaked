@@ -7,8 +7,7 @@
 package dan200.computercraft.shared.proxy;
 
 import dan200.computercraft.shared.command.text.TableBuilder;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.SoundEvent;
+import net.minecraft.sound.SoundEvent;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
@@ -19,8 +18,6 @@ public interface IComputerCraftProxy
     void preInit();
 
     void init();
-
-    void initServer( MinecraftServer server );
 
     File getWorldDir( World world );
 

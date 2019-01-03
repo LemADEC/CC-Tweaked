@@ -6,10 +6,15 @@
 
 package dan200.computercraft.shared.network.client;
 
-import dan200.computercraft.shared.network.NetworkMessages;
+import dan200.computercraft.ComputerCraft;
+import net.minecraft.util.Identifier;
+
+import javax.annotation.Nonnull;
 
 public class ComputerDeletedClientMessage extends ComputerClientMessage
 {
+    private static final Identifier ID = new Identifier( ComputerCraft.MOD_ID, "computer_deleted" );
+
     public ComputerDeletedClientMessage( int instanceId )
     {
         super( instanceId );
@@ -20,8 +25,8 @@ public class ComputerDeletedClientMessage extends ComputerClientMessage
     }
 
     @Override
-    public int getId()
+    public @Nonnull Identifier getId()
     {
-        return NetworkMessages.COMPUTER_DELETED_CLIENT_MESSAGE;
+        return ID;
     }
 }

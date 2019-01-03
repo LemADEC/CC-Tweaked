@@ -1,0 +1,14 @@
+{
+    "type": "crafting_shaped",
+    "pattern": [
+        "###",
+        "#N#",
+        "#R#"
+    ],
+    "key": {
+        "#": { "item": "minecraft:stone" },
+        "R": { "item": "minecraft:redstone" },
+        "N": { "item": "minecraft:noteblock" }
+    },
+    "result": { "item": "computercraft:speaker" }
+}

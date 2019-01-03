@@ -10,29 +10,30 @@ import com.google.common.base.Preconditions;
 import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.api.peripheral.IPeripheral;
 import dan200.computercraft.api.peripheral.IPeripheralProvider;
-import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.world.World;
 
 import javax.annotation.Nonnull;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 
 public final class Peripherals
 {
-    private static final Collection<IPeripheralProvider> providers = ComputerCraft.peripheralProviders;
+    private static final Collection<IPeripheralProvider> providers = new LinkedHashSet<>();
 
     public static void register( @Nonnull IPeripheralProvider provider )
     {
         Preconditions.checkNotNull( provider, "provider cannot be null" );
-        if( !providers.contains( provider ) ) providers.add( provider );
+        providers.add( provider );
     }
 
-    public static IPeripheral getPeripheral( World world, BlockPos pos, EnumFacing side )
+    public static IPeripheral getPeripheral( World world, BlockPos pos, Direction side )
     {
-        return world.isValid( pos ) && !world.isRemote ? getPeripheralAt( world, pos, side ) : null;
+        return World.isValid( pos ) && !world.isClient ? getPeripheralAt( world, pos, side ) : null;
     }
 
-    private static IPeripheral getPeripheralAt( World world, BlockPos pos, EnumFacing side )
+    private static IPeripheral getPeripheralAt( World world, BlockPos pos, Direction side )
     {
         // Try the handlers in order:
         for( IPeripheralProvider peripheralProvider : providers )

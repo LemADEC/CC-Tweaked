@@ -10,41 +10,41 @@ import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.api.ComputerCraftAPI;
 import dan200.computercraft.api.filesystem.IMount;
 import dan200.computercraft.api.media.IMedia;
+import dan200.computercraft.shared.computer.blocks.BlockComputerBase;
 import dan200.computercraft.shared.computer.core.ComputerFamily;
-import net.minecraft.block.Block;
-import net.minecraft.client.util.ITooltipFlag;
-import net.minecraft.item.ItemBlock;
+import net.minecraft.client.item.TooltipOptions;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.block.BlockItem;
+import net.minecraft.text.StringTextComponent;
+import net.minecraft.text.TextComponent;
+import net.minecraft.text.TextFormat;
+import net.minecraft.text.TranslatableTextComponent;
 import net.minecraft.world.World;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.List;
 
-public abstract class ItemComputerBase extends ItemBlock implements IComputerItem, IMedia
+public abstract class ItemComputerBase extends BlockItem implements IComputerItem, IMedia
 {
-    protected ItemComputerBase( Block block )
-    {
-        super( block );
-    }
+    private final ComputerFamily family;
 
-    public abstract ComputerFamily getFamily( int damage );
-
-    @Override
-    public final int getMetadata( int damage )
+    public ItemComputerBase( BlockComputerBase<?> block, Settings settings )
     {
-        return damage;
+        super( block, settings );
+        this.family = block.getFamily();
     }
 
     @Override
-    public void addInformation( @Nonnull ItemStack stack, @Nullable World world, @Nonnull List<String> list, @Nonnull ITooltipFlag flag )
+    public void buildTooltip( @Nonnull ItemStack stack, @Nullable World world, @Nonnull List<TextComponent> list, @Nonnull TooltipOptions options )
     {
-        if( flag.isAdvanced() )
+        if( options.isAdvanced() )
         {
-            int id = getComputerID( stack );
+            int id = getComputerId( stack );
             if( id >= 0 )
             {
-                list.add( "(Computer ID: " + id + ")" );
+                list.add( new TranslatableTextComponent( "gui.computercraft.tooltip.computer_id", id )
+                    .applyFormat( TextFormat.GRAY ) );
             }
         }
     }
@@ -52,23 +52,15 @@ public abstract class ItemComputerBase extends ItemBlock implements IComputerIte
     // IComputerItem implementation
 
     @Override
-    public abstract int getComputerID( @Nonnull ItemStack stack );
-
-    @Override
     public String getLabel( @Nonnull ItemStack stack )
     {
-        if( stack.hasDisplayName() )
-        {
-            return stack.getDisplayName();
-        }
-        return null;
+        return stack.hasDisplayName() ? stack.getDisplayName().getString() : null;
     }
 
     @Override
-    public final ComputerFamily getFamily( @Nonnull ItemStack stack )
+    public final ComputerFamily getFamily()
     {
-        int damage = stack.getItemDamage();
-        return getFamily( damage );
+        return family;
     }
 
     // IMedia implementation
@@ -78,11 +70,11 @@ public abstract class ItemComputerBase extends ItemBlock implements IComputerIte
     {
         if( label != null )
         {
-            stack.setStackDisplayName( label );
+            stack.setDisplayName( new StringTextComponent( label ) );
         }
         else
         {
-            stack.clearCustomName();
+            stack.removeDisplayName();
         }
         return true;
     }
@@ -90,10 +82,10 @@ public abstract class ItemComputerBase extends ItemBlock implements IComputerIte
     @Override
     public IMount createDataMount( @Nonnull ItemStack stack, @Nonnull World world )
     {
-        ComputerFamily family = getFamily( stack );
+        ComputerFamily family = getFamily();
         if( family != ComputerFamily.Command )
         {
-            int id = getComputerID( stack );
+            int id = getComputerId( stack );
             if( id >= 0 )
             {
                 return ComputerCraftAPI.createSaveDirMount( world, "computer/" + id, ComputerCraft.computerSpaceLimit );

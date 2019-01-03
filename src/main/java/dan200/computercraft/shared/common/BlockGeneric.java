@@ -7,139 +7,73 @@
 package dan200.computercraft.shared.common;
 
 import net.minecraft.block.Block;
-import net.minecraft.block.ITileEntityProvider;
-import net.minecraft.block.material.Material;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.item.ItemStack;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.EnumHand;
-import net.minecraft.util.NonNullList;
+import net.minecraft.block.BlockEntityProvider;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.entity.BlockEntityType;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.IBlockAccess;
+import net.minecraft.util.math.Direction;
+import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
 
-import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
-public abstract class BlockGeneric extends Block implements ITileEntityProvider
+public abstract class BlockGeneric extends Block implements BlockEntityProvider
 {
-    protected BlockGeneric( Material material )
+    private final BlockEntityType<? extends TileGeneric> type;
+
+    public BlockGeneric( Settings settings, BlockEntityType<? extends TileGeneric> type )
     {
-        super( material );
-        this.hasTileEntity = true;
+        super( settings );
+        this.type = type;
     }
 
-    protected abstract IBlockState getDefaultBlockState( int damage, EnumFacing placedSide );
-
-    protected abstract TileGeneric createTile( IBlockState state );
-
-    protected abstract TileGeneric createTile( int damage );
-
-    @Override
-    public final void dropBlockAsItemWithChance( World world, @Nonnull BlockPos pos, @Nonnull IBlockState state, float chance, int fortune )
-    {
-    }
-
-    @Override
-    public final void getDrops( @Nonnull NonNullList<ItemStack> drops, IBlockAccess world, BlockPos pos, @Nonnull IBlockState state, int fortune )
-    {
-        TileEntity tile = world.getTileEntity( pos );
-        if( tile instanceof TileGeneric )
-        {
-            TileGeneric generic = (TileGeneric) tile;
-            generic.getDroppedItems( drops, false );
-        }
-    }
-
-    @Nonnull
-    @Override
     @Deprecated
-    public final IBlockState getStateForPlacement( World world, BlockPos pos, EnumFacing side, float hitX, float hitY, float hitZ, int damage, EntityLivingBase placer )
+    @Override
+    public void onBlockRemoved( BlockState block, World world, BlockPos pos, BlockState replace, boolean bool )
     {
-        return getDefaultBlockState( damage, side );
+        if( block.getBlock() == replace.getBlock() ) return;
+
+        BlockEntity entity = world.getBlockEntity( pos );
+        super.onBlockRemoved( block, world, pos, replace, bool );
+        world.removeBlockEntity( pos );
+        if( entity instanceof TileGeneric ) ((TileGeneric) entity).destroy();
+    }
+
+    @Deprecated
+    @Override
+    public boolean onBlockAction( BlockState state, World world, BlockPos pos, int action, int arg )
+    {
+        super.onBlockAction( state, world, pos, action, arg );
+        BlockEntity entity = world.getBlockEntity( pos );
+        return entity != null && entity.method_11004( action, arg );
     }
 
     @Override
-    public boolean removedByPlayer( @Nonnull IBlockState state, World world, @Nonnull BlockPos pos, @Nonnull EntityPlayer player, boolean willHarvest )
+    @Nullable
+    public BlockEntity createBlockEntity( BlockView blockView )
     {
-        if( !world.isRemote )
-        {
-            // Drop items
-            boolean creative = player.capabilities.isCreativeMode;
-            dropAllItems( world, pos, creative );
-        }
-
-        // Remove block
-        return super.removedByPlayer( state, world, pos, player, willHarvest );
-    }
-
-    public final void dropAllItems( World world, BlockPos pos, boolean creative )
-    {
-        // Get items to drop
-        NonNullList<ItemStack> drops = NonNullList.create();
-        TileEntity tile = world.getTileEntity( pos );
-        if( tile instanceof TileGeneric )
-        {
-            TileGeneric generic = (TileGeneric) tile;
-            generic.getDroppedItems( drops, creative );
-        }
-
-        // Drop items
-        if( drops.size() > 0 )
-        {
-            for( ItemStack item : drops )
-            {
-                dropItem( world, pos, item );
-            }
-        }
-    }
-
-    public final void dropItem( World world, BlockPos pos, @Nonnull ItemStack stack )
-    {
-        Block.spawnAsEntity( world, pos, stack );
-    }
-
-    @Override
-    public final void breakBlock( @Nonnull World world, @Nonnull BlockPos pos, @Nonnull IBlockState newState )
-    {
-        TileEntity tile = world.getTileEntity( pos );
-        super.breakBlock( world, pos, newState );
-        world.removeTileEntity( pos );
-        if( tile instanceof TileGeneric )
-        {
-            TileGeneric generic = (TileGeneric) tile;
-            generic.destroy();
-        }
-    }
-
-    @Override
-    public final boolean onBlockActivated( World world, BlockPos pos, IBlockState state, EntityPlayer player, EnumHand hand, EnumFacing side, float hitX, float hitY, float hitZ )
-    {
-        TileEntity tile = world.getTileEntity( pos );
-        if( tile instanceof TileGeneric )
-        {
-            TileGeneric generic = (TileGeneric) tile;
-            return generic.onActivate( player, hand, side, hitX, hitY, hitZ );
-        }
-        return false;
+        return type.instantiate();
     }
 
     @Override
     @Deprecated
-    public final void neighborChanged( IBlockState state, World world, BlockPos pos, Block block, BlockPos neighorPos )
+    public boolean activate( BlockState state, World world, BlockPos pos, PlayerEntity player, Hand hand, Direction side, float hitX, float hitY, float hitZ )
     {
-        TileEntity tile = world.getTileEntity( pos );
-        if( tile instanceof TileGeneric )
+        BlockEntity entity = world.getBlockEntity( pos );
+        if( !(entity instanceof TileGeneric) )
         {
-            TileGeneric generic = (TileGeneric) tile;
-            generic.onNeighbourChange();
+            return super.activate( state, world, pos, player, hand, side, hitX, hitY, hitZ );
         }
+
+        return ((TileGeneric) entity).onActivate( player, hand, side, hitX, hitY, hitZ );
     }
 
+    /*
     @Override
-    public final void onNeighborChange( IBlockAccess world, BlockPos pos, BlockPos neighbour )
+    public final void onNeighborChange( BlockView world, BlockPos pos, BlockPos neighbour )
     {
         TileEntity tile = world.getTileEntity( pos );
         if( tile instanceof TileGeneric )
@@ -148,88 +82,14 @@ public abstract class BlockGeneric extends Block implements ITileEntityProvider
             generic.onNeighbourTileEntityChange( neighbour );
         }
     }
+    */
 
     @Override
     @Deprecated
-    public final boolean canProvidePower( IBlockState state )
+    public void neighborUpdate( BlockState state, World world, BlockPos pos, Block neighbourBlock, BlockPos neighbourPos )
     {
-        return true;
-    }
-
-    @Override
-    public final boolean canConnectRedstone( IBlockState state, IBlockAccess world, BlockPos pos, EnumFacing side )
-    {
-        TileEntity tile = world.getTileEntity( pos );
-        if( tile instanceof TileGeneric )
-        {
-            TileGeneric generic = (TileGeneric) tile;
-            return generic.getRedstoneConnectivity( side );
-        }
-        return false;
-    }
-
-    @Override
-    @Deprecated
-    public final int getStrongPower( IBlockState state, IBlockAccess world, BlockPos pos, EnumFacing oppositeSide )
-    {
-        TileEntity tile = world.getTileEntity( pos );
-        if( tile instanceof TileGeneric && tile.hasWorld() )
-        {
-            TileGeneric generic = (TileGeneric) tile;
-            return generic.getRedstoneOutput( oppositeSide.getOpposite() );
-        }
-        return 0;
-    }
-
-    @Override
-    @Deprecated
-    public final int getWeakPower( IBlockState state, IBlockAccess world, BlockPos pos, EnumFacing oppositeSide )
-    {
-        return getStrongPower( state, world, pos, oppositeSide );
-    }
-
-    public boolean getBundledRedstoneConnectivity( World world, BlockPos pos, EnumFacing side )
-    {
-        TileEntity tile = world.getTileEntity( pos );
-        if( tile instanceof TileGeneric )
-        {
-            TileGeneric generic = (TileGeneric) tile;
-            return generic.getBundledRedstoneConnectivity( side );
-        }
-        return false;
-    }
-
-    public int getBundledRedstoneOutput( World world, BlockPos pos, EnumFacing side )
-    {
-        TileEntity tile = world.getTileEntity( pos );
-        if( tile instanceof TileGeneric && tile.hasWorld() )
-        {
-            TileGeneric generic = (TileGeneric) tile;
-            return generic.getBundledRedstoneOutput( side );
-        }
-        return 0;
-    }
-
-    @Nonnull
-    @Override
-    public final TileEntity createTileEntity( @Nonnull World world, @Nonnull IBlockState state )
-    {
-        return createTile( state );
-    }
-
-    @Nonnull
-    @Override
-    public final TileEntity createNewTileEntity( @Nonnull World world, int damage )
-    {
-        return createTile( damage );
-    }
-
-    @Override
-    @Deprecated
-    public boolean isSideSolid( IBlockState state, @Nonnull IBlockAccess world, @Nonnull BlockPos pos, EnumFacing side )
-    {
-        // We need to override this as the default implementation uses isNormalCube, which returns false if
-        // it can provide power.
-        return isFullCube( state );
+        super.neighborUpdate( state, world, pos, neighbourBlock, neighbourPos );
+        BlockEntity tile = world.getBlockEntity( pos );
+        if( tile instanceof TileGeneric ) ((TileGeneric) tile).onNeighbourChange( neighbourPos );
     }
 }

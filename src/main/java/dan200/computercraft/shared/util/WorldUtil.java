@@ -6,15 +6,17 @@
 
 package dan200.computercraft.shared.util;
 
+import com.google.common.base.Predicates;
+import net.minecraft.block.BlockState;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.entity.item.EntityItem;
-import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.ItemEntity;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.HitResult;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.BoundingBox;
+import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import org.apache.commons.lang3.tuple.Pair;
@@ -26,7 +28,14 @@ public class WorldUtil
 {
     public static boolean isLiquidBlock( World world, BlockPos pos )
     {
-        return world.getBlockState( pos ).getMaterial().isLiquid();
+        if( !World.isValid( pos ) ) return false;
+        BlockState state = world.getBlockState( pos );
+        return !state.getFluidState().isEmpty();
+    }
+
+    public static BlockPos moveCoords( BlockPos pos, Direction dir )
+    {
+        return pos.offset( dir );
     }
 
     public static Pair<Entity, Vec3d> rayTraceEntities( World world, Vec3d vecStart, Vec3d vecDir, double distance )
@@ -34,10 +43,10 @@ public class WorldUtil
         Vec3d vecEnd = vecStart.add( vecDir.x * distance, vecDir.y * distance, vecDir.z * distance );
 
         // Raycast for blocks
-        RayTraceResult result = world.rayTraceBlocks( vecStart, vecEnd );
-        if( result != null && result.typeOfHit == RayTraceResult.Type.BLOCK )
+        HitResult result = world.rayTrace( vecStart, vecEnd );
+        if( result != null && result.type == HitResult.Type.BLOCK )
         {
-            distance = vecStart.distanceTo( result.hitVec );
+            distance = vecStart.distanceTo( result.pos );
             vecEnd = vecStart.add( vecDir.x * distance, vecDir.y * distance, vecDir.z * distance );
         }
 
@@ -45,7 +54,7 @@ public class WorldUtil
         float xStretch = Math.abs( vecDir.x ) > 0.25f ? 0.0f : 1.0f;
         float yStretch = Math.abs( vecDir.y ) > 0.25f ? 0.0f : 1.0f;
         float zStretch = Math.abs( vecDir.z ) > 0.25f ? 0.0f : 1.0f;
-        AxisAlignedBB bigBox = new AxisAlignedBB(
+        BoundingBox bigBox = new BoundingBox(
             Math.min( vecStart.x, vecEnd.x ) - 0.375f * xStretch,
             Math.min( vecStart.y, vecEnd.y ) - 0.375f * yStretch,
             Math.min( vecStart.z, vecEnd.z ) - 0.375f * zStretch,
@@ -56,23 +65,15 @@ public class WorldUtil
 
         Entity closest = null;
         double closestDist = 99.0;
-        List<Entity> list = world.getEntitiesWithinAABBExcludingEntity( null, bigBox );
+        List<Entity> list = world.getEntities( (Entity) null, bigBox, Predicates.alwaysTrue() );
         for( Entity entity : list )
         {
-            if( entity.isDead || !entity.canBeCollidedWith() )
+            if( entity.isValid() || !entity.doesCollide() )
             {
                 continue;
             }
 
-            AxisAlignedBB littleBox = entity.getEntityBoundingBox();
-            if( littleBox == null )
-            {
-                littleBox = entity.getCollisionBoundingBox();
-                if( littleBox == null )
-                {
-                    continue;
-                }
-            }
+            BoundingBox littleBox = entity.getBoundingBox();
 
             if( littleBox.contains( vecStart ) )
             {
@@ -81,10 +82,10 @@ public class WorldUtil
                 continue;
             }
 
-            RayTraceResult littleBoxResult = littleBox.calculateIntercept( vecStart, vecEnd );
+            HitResult littleBoxResult = littleBox.rayTrace( vecStart, vecEnd );
             if( littleBoxResult != null )
             {
-                double dist = vecStart.distanceTo( littleBoxResult.hitVec );
+                double dist = vecStart.distanceTo( littleBoxResult.pos );
                 if( closest == null || dist <= closestDist )
                 {
                     closest = entity;
@@ -108,21 +109,16 @@ public class WorldUtil
         return null;
     }
 
-    public static Vec3d getRayStart( EntityLivingBase entity )
+    public static Vec3d getRayStart( LivingEntity entity )
     {
-        return new Vec3d( entity.posX, entity.posY + entity.getEyeHeight(), entity.posZ );
+        return new Vec3d( entity.x, entity.y + entity.getEyeHeight(), entity.z );
     }
 
-    public static Vec3d getRayEnd( EntityPlayer player )
+    public static Vec3d getRayEnd( PlayerEntity player )
     {
-        double reach = player.getEntityAttribute( EntityPlayer.REACH_DISTANCE ).getAttributeValue();
-        Vec3d look = player.getLookVec();
+        double reach = 5; // TODO: player.getAttributeInstance( PlayerEntity.REACH_DISTANCE ).getAttributeValue();
+        Vec3d look = player.getRotationVec( 1 );
         return getRayStart( player ).add( look.x * reach, look.y * reach, look.z * reach );
-    }
-
-    public static boolean isVecInsideInclusive( AxisAlignedBB bb, Vec3d vec )
-    {
-        return vec.x >= bb.minX && vec.x <= bb.maxX && vec.y >= bb.minY && vec.y <= bb.maxY && vec.z >= bb.minZ && vec.z <= bb.maxZ;
     }
 
     public static void dropItemStack( @Nonnull ItemStack stack, World world, BlockPos pos )
@@ -130,16 +126,16 @@ public class WorldUtil
         dropItemStack( stack, world, pos, null );
     }
 
-    public static void dropItemStack( @Nonnull ItemStack stack, World world, BlockPos pos, EnumFacing direction )
+    public static void dropItemStack( @Nonnull ItemStack stack, World world, BlockPos pos, Direction direction )
     {
         double xDir;
         double yDir;
         double zDir;
         if( direction != null )
         {
-            xDir = direction.getXOffset();
-            yDir = direction.getYOffset();
-            zDir = direction.getZOffset();
+            xDir = direction.getOffsetX();
+            yDir = direction.getOffsetY();
+            zDir = direction.getOffsetZ();
         }
         else
         {
@@ -161,11 +157,11 @@ public class WorldUtil
 
     public static void dropItemStack( @Nonnull ItemStack stack, World world, double xPos, double yPos, double zPos, double xDir, double yDir, double zDir )
     {
-        EntityItem entityItem = new EntityItem( world, xPos, yPos, zPos, stack.copy() );
-        entityItem.motionX = xDir * 0.7 + world.rand.nextFloat() * 0.2 - 0.1;
-        entityItem.motionY = yDir * 0.7 + world.rand.nextFloat() * 0.2 - 0.1;
-        entityItem.motionZ = zDir * 0.7 + world.rand.nextFloat() * 0.2 - 0.1;
-        entityItem.setDefaultPickupDelay();
-        world.spawnEntity( entityItem );
+        ItemEntity item = new ItemEntity( world, xPos, yPos, zPos, stack.copy() );
+        item.velocityX = xDir * 0.7 + world.getRandom().nextFloat() * 0.2 - 0.1;
+        item.velocityY = yDir * 0.7 + world.getRandom().nextFloat() * 0.2 - 0.1;
+        item.velocityZ = zDir * 0.7 + world.getRandom().nextFloat() * 0.2 - 0.1;
+        item.setPickupDelayDefault();
+        world.spawnEntity( item );
     }
 }

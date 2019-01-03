@@ -6,14 +6,17 @@
 
 package dan200.computercraft.shared.network.server;
 
+import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.shared.network.NetworkMessage;
-import dan200.computercraft.shared.network.NetworkMessages;
-import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.PacketByteBuf;
 
 import javax.annotation.Nonnull;
 
 public class RequestComputerMessage implements NetworkMessage
 {
+    private static final Identifier ID = new Identifier( ComputerCraft.MOD_ID, "request_computer" );
+
     private int instance;
 
     public RequestComputerMessage( int instance )
@@ -25,10 +28,11 @@ public class RequestComputerMessage implements NetworkMessage
     {
     }
 
+    @Nonnull
     @Override
-    public int getId()
+    public Identifier getId()
     {
-        return NetworkMessages.REQUEST_COMPUTER_SERVER_MESSAGE;
+        return ID;
     }
 
     public int getInstance()
@@ -37,13 +41,13 @@ public class RequestComputerMessage implements NetworkMessage
     }
 
     @Override
-    public void toBytes( @Nonnull PacketBuffer buf )
+    public void toBytes( @Nonnull PacketByteBuf buf )
     {
         buf.writeVarInt( instance );
     }
 
     @Override
-    public void fromBytes( @Nonnull PacketBuffer buf )
+    public void fromBytes( @Nonnull PacketByteBuf buf )
     {
         instance = buf.readVarInt();
     }

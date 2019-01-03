@@ -6,11 +6,13 @@
 
 package dan200.computercraft.shared.network.client;
 
+import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.shared.network.NetworkMessage;
-import dan200.computercraft.shared.network.NetworkMessages;
-import net.minecraft.network.PacketBuffer;
-import net.minecraft.util.SoundEvent;
+import net.minecraft.sound.SoundEvent;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.PacketByteBuf;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.registry.Registry;
 
 import javax.annotation.Nonnull;
 
@@ -23,6 +25,8 @@ import javax.annotation.Nonnull;
  */
 public class PlayRecordClientMessage implements NetworkMessage
 {
+    private static final Identifier ID = new Identifier( ComputerCraft.MOD_ID, "play_record" );
+
     private BlockPos pos;
     private String name;
     private SoundEvent soundEvent;
@@ -44,9 +48,9 @@ public class PlayRecordClientMessage implements NetworkMessage
     }
 
     @Override
-    public int getId()
+    public @Nonnull Identifier getId()
     {
-        return NetworkMessages.PLAY_RECORD_CLIENT_MESSAGE;
+        return ID;
     }
 
     public BlockPos getPos()
@@ -65,7 +69,7 @@ public class PlayRecordClientMessage implements NetworkMessage
     }
 
     @Override
-    public void toBytes( @Nonnull PacketBuffer buf )
+    public void toBytes( @Nonnull PacketByteBuf buf )
     {
         buf.writeBlockPos( pos );
         if( soundEvent == null )
@@ -76,18 +80,18 @@ public class PlayRecordClientMessage implements NetworkMessage
         {
             buf.writeBoolean( true );
             buf.writeString( name );
-            buf.writeInt( SoundEvent.REGISTRY.getIDForObject( soundEvent ) );
+            buf.writeInt( Registry.SOUND_EVENT.getRawId( soundEvent ) );
         }
     }
 
     @Override
-    public void fromBytes( @Nonnull PacketBuffer buf )
+    public void fromBytes( @Nonnull PacketByteBuf buf )
     {
         pos = buf.readBlockPos();
         if( buf.readBoolean() )
         {
             name = buf.readString( Short.MAX_VALUE );
-            soundEvent = SoundEvent.REGISTRY.getObjectById( buf.readInt() );
+            soundEvent = Registry.SOUND_EVENT.getInt( buf.readInt() );
         }
     }
 }

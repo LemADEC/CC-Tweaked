@@ -6,62 +6,52 @@
 
 package dan200.computercraft.shared.util;
 
-import com.google.gson.JsonObject;
-import net.minecraft.inventory.InventoryCrafting;
+import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.crafting.IRecipe;
-import net.minecraft.item.crafting.Ingredient;
-import net.minecraft.item.crafting.ShapedRecipes;
-import net.minecraft.item.crafting.ShapelessRecipes;
-import net.minecraft.util.JsonUtils;
-import net.minecraft.util.NonNullList;
+import net.minecraft.recipe.Ingredient;
+import net.minecraft.recipe.RecipeSerializer;
+import net.minecraft.recipe.crafting.ShapelessRecipe;
+import net.minecraft.util.DefaultedList;
+import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
-import net.minecraftforge.common.crafting.IRecipeFactory;
-import net.minecraftforge.common.crafting.JsonContext;
 
 import javax.annotation.Nonnull;
 
-public class ImpostorShapelessRecipe extends ShapelessRecipes
+public class ImpostorShapelessRecipe extends ShapelessRecipe
 {
-    public ImpostorShapelessRecipe( @Nonnull String group, @Nonnull ItemStack result, NonNullList<Ingredient> ingredients )
+    public ImpostorShapelessRecipe( @Nonnull Identifier id, @Nonnull String group, @Nonnull ItemStack result, DefaultedList<Ingredient> ingredients )
     {
-        super( group, result, ingredients );
+        super( id, group, result, ingredients );
     }
 
-    public ImpostorShapelessRecipe( @Nonnull String group, @Nonnull ItemStack result, ItemStack[] ingredients )
+    public ImpostorShapelessRecipe( @Nonnull Identifier id, @Nonnull String group, @Nonnull ItemStack result, ItemStack[] ingredients )
     {
-        super( group, result, convert( ingredients ) );
+        super( id, group, result, convert( ingredients ) );
     }
 
-    private static NonNullList<Ingredient> convert( ItemStack[] items )
+    private static DefaultedList<Ingredient> convert( ItemStack[] items )
     {
-        NonNullList<Ingredient> ingredients = NonNullList.withSize( items.length, Ingredient.EMPTY );
-        for( int i = 0; i < items.length; i++ ) ingredients.set( i, Ingredient.fromStacks( items[i] ) );
+        DefaultedList<Ingredient> ingredients = DefaultedList.create( items.length, Ingredient.EMPTY );
+        for( int i = 0; i < items.length; i++ ) ingredients.set( i, Ingredient.ofStacks( items[i] ) );
         return ingredients;
     }
 
     @Override
-    public boolean matches( InventoryCrafting inv, World world )
+    public boolean matches( Inventory inv, World world )
     {
         return false;
     }
 
     @Nonnull
     @Override
-    public ItemStack getCraftingResult( InventoryCrafting inventory )
+    public ItemStack craft( Inventory inventory )
     {
         return ItemStack.EMPTY;
     }
 
-    public static class Factory implements IRecipeFactory
+    @Override
+    public RecipeSerializer<?> getSerializer()
     {
-        @Override
-        public IRecipe parse( JsonContext context, JsonObject json )
-        {
-            String group = JsonUtils.getString( json, "group", "" );
-            NonNullList<Ingredient> ings = RecipeUtil.getIngredients( context, json );
-            ItemStack itemstack = ShapedRecipes.deserializeItem( JsonUtils.getJsonObject( json, "result" ), true );
-            return new ImpostorShapelessRecipe( group, itemstack, ings );
-        }
+        return super.getSerializer(); // TODO: Implement me!
     }
 }

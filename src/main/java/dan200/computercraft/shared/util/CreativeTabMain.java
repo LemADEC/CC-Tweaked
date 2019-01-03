@@ -7,33 +7,25 @@
 package dan200.computercraft.shared.util;
 
 import dan200.computercraft.ComputerCraft;
-import net.minecraft.creativetab.CreativeTabs;
+import net.fabricmc.api.EnvType;
+import net.fabricmc.api.Environment;
+import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
 
 import javax.annotation.Nonnull;
 
-public class CreativeTabMain extends CreativeTabs
+public class CreativeTabMain extends ItemGroup
 {
     public CreativeTabMain( int i )
     {
-        super( i, "CC: Tweaked" );
+        super( i, "cctweaked" );
     }
 
     @Nonnull
     @Override
-    @SideOnly( Side.CLIENT )
-    public ItemStack createIcon()
+    @Environment( EnvType.CLIENT )
+    public ItemStack getIconItem()
     {
-        return new ItemStack( ComputerCraft.Blocks.computer );
-    }
-
-    @Nonnull
-    @Override
-    @SideOnly( Side.CLIENT )
-    public String getTranslationKey()
-    {
-        return getTabLabel();
+        return new ItemStack( ComputerCraft.Blocks.computerAdvanced );
     }
 }

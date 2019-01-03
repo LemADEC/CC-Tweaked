@@ -6,10 +6,11 @@
 
 package dan200.computercraft.shared.network.server;
 
-import dan200.computercraft.shared.network.NetworkMessages;
+import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.shared.util.NBTUtil;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.network.PacketBuffer;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.PacketByteBuf;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -22,6 +23,8 @@ import javax.annotation.Nullable;
  */
 public class QueueEventServerMessage extends ComputerServerMessage
 {
+    private static final Identifier ID = new Identifier( ComputerCraft.MOD_ID, "queue_event" );
+
     private String event;
     private Object[] args;
 
@@ -37,9 +40,9 @@ public class QueueEventServerMessage extends ComputerServerMessage
     }
 
     @Override
-    public int getId()
+    public @Nonnull Identifier getId()
     {
-        return NetworkMessages.QUEUE_EVENT_SERVER_MESSAGE;
+        return ID;
     }
 
     @Nonnull
@@ -55,7 +58,7 @@ public class QueueEventServerMessage extends ComputerServerMessage
     }
 
     @Override
-    public void toBytes( @Nonnull PacketBuffer buf )
+    public void toBytes( @Nonnull PacketByteBuf buf )
     {
         super.toBytes( buf );
         buf.writeString( event );
@@ -63,12 +66,12 @@ public class QueueEventServerMessage extends ComputerServerMessage
     }
 
     @Override
-    public void fromBytes( @Nonnull PacketBuffer buf )
+    public void fromBytes( @Nonnull PacketByteBuf buf )
     {
         super.fromBytes( buf );
         event = buf.readString( Short.MAX_VALUE );
 
-        NBTTagCompound args = NBTUtil.readCompoundTag( buf );
+        CompoundTag args = buf.readCompoundTag();
         this.args = args == null ? null : NBTUtil.decodeObjects( args );
     }
 }

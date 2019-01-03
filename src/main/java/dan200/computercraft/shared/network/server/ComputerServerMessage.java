@@ -9,10 +9,10 @@ package dan200.computercraft.shared.network.server;
 import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.shared.computer.core.ServerComputer;
 import dan200.computercraft.shared.network.NetworkMessage;
-import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.network.PacketBuffer;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
-import net.minecraftforge.fml.relauncher.Side;
+import net.fabricmc.fabric.networking.CustomPayloadPacketRegistry;
+import net.fabricmc.fabric.networking.PacketContext;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.util.PacketByteBuf;
 
 import javax.annotation.Nonnull;
 import java.util.function.BiConsumer;
@@ -38,24 +38,24 @@ public abstract class ComputerServerMessage implements NetworkMessage
     }
 
     @Override
-    public void toBytes( @Nonnull PacketBuffer buf )
+    public void toBytes( @Nonnull PacketByteBuf buf )
     {
         buf.writeVarInt( instanceId );
     }
 
     @Override
-    public void fromBytes( @Nonnull PacketBuffer buf )
+    public void fromBytes( @Nonnull PacketByteBuf buf )
     {
         instanceId = buf.readVarInt();
     }
 
-    public ServerComputer getComputer( MessageContext context )
+    public ServerComputer getComputer( PacketContext context )
     {
         ServerComputer computer = ComputerCraft.serverComputerRegistry.get( instanceId );
         if( computer == null ) return null;
 
         // Verify the player is interacting with a computer.
-        EntityPlayer player = context.getServerHandler().player;
+        PlayerEntity player = context.getPlayer();
         if( player == null || !computer.isInteracting( player ) ) return null;
 
         return computer;
@@ -63,7 +63,7 @@ public abstract class ComputerServerMessage implements NetworkMessage
 
     public static <T extends ComputerServerMessage> void register( Supplier<T> factory, BiConsumer<ServerComputer, T> handler )
     {
-        NetworkMessage.registerMainThread( Side.SERVER, factory, ( context, packet ) -> {
+        NetworkMessage.registerMainThread( CustomPayloadPacketRegistry.SERVER, factory, ( context, packet ) -> {
             ServerComputer computer = packet.getComputer( context );
             if( computer != null ) handler.accept( computer, packet );
         } );

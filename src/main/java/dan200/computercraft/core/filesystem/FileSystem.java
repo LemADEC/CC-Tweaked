@@ -870,16 +870,10 @@ public class FileSystem
         path = sanitizePath( path );
         location = sanitizePath( location );
 
-        assert (contains( location, path ));
+        if( !contains( location, path ) ) throw new IllegalStateException( "Not a local path" );
+
         String local = path.substring( location.length() );
-        if( local.startsWith( "/" ) )
-        {
-            return local.substring( 1 );
-        }
-        else
-        {
-            return local;
-        }
+        return local.startsWith( "/" ) ? local.substring( 1 ) : local;
     }
 
     private static void closeQuietly( Closeable c )

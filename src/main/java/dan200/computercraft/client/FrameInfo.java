@@ -6,9 +6,6 @@
 
 package dan200.computercraft.client;
 
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent;
-
 public class FrameInfo
 {
     private static final FrameInfo instance = new FrameInfo();
@@ -35,6 +32,7 @@ public class FrameInfo
         return renderFrame;
     }
 
+    /*
     @SubscribeEvent
     public void onTick( TickEvent.ClientTickEvent event )
     {
@@ -45,5 +43,16 @@ public class FrameInfo
     public void onRenderTick( TickEvent.RenderTickEvent event )
     {
         if( event.phase == TickEvent.Phase.START ) renderFrame++;
+    }
+    */
+
+    public void onTick()
+    {
+        tick++;
+    }
+
+    public void onRenderFrame()
+    {
+        renderFrame++;
     }
 }

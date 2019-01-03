@@ -6,33 +6,31 @@
 
 package dan200.computercraft.client.gui;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.client.gui.widgets.WidgetTerminal;
+import dan200.computercraft.client.gui.widgets.WidgetWrapper;
 import dan200.computercraft.shared.computer.blocks.TileComputer;
 import dan200.computercraft.shared.computer.core.ClientComputer;
 import dan200.computercraft.shared.computer.core.ComputerFamily;
-import dan200.computercraft.shared.computer.core.IComputer;
 import dan200.computercraft.shared.computer.inventory.ContainerComputer;
-import net.minecraft.client.gui.inventory.GuiContainer;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.inventory.Container;
-import net.minecraft.util.ResourceLocation;
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.input.Mouse;
+import net.minecraft.client.gui.ContainerGui;
+import net.minecraft.container.Container;
+import net.minecraft.util.Identifier;
 
-import java.io.IOException;
-
-public class GuiComputer extends GuiContainer
+public class GuiComputer extends ContainerGui
 {
-    private static final ResourceLocation BACKGROUND = new ResourceLocation( "computercraft", "textures/gui/corners.png" );
-    private static final ResourceLocation BACKGROUND_ADVANCED = new ResourceLocation( "computercraft", "textures/gui/corners_advanced.png" );
-    private static final ResourceLocation BACKGROUND_COMMAND = new ResourceLocation( "computercraft", "textures/gui/corners_command.png" );
+    private static final Identifier BACKGROUND_NORMAL = new Identifier( "computercraft", "textures/gui/corners_normal.png" );
+    private static final Identifier BACKGROUND_ADVANCED = new Identifier( "computercraft", "textures/gui/corners_advanced.png" );
+    private static final Identifier BACKGROUND_COMMAND = new Identifier( "computercraft", "textures/gui/corners_command.png" );
 
     private final ComputerFamily m_family;
     private final ClientComputer m_computer;
     private final int m_termWidth;
     private final int m_termHeight;
-    private WidgetTerminal m_terminal;
+
+    private WidgetTerminal terminal;
+    private WidgetWrapper terminalWrapper;
 
     public GuiComputer( Container container, ComputerFamily family, ClientComputer computer, int termWidth, int termHeight )
     {
@@ -41,13 +39,7 @@ public class GuiComputer extends GuiContainer
         m_computer = computer;
         m_termWidth = termWidth;
         m_termHeight = termHeight;
-        m_terminal = null;
-    }
-
-    @Deprecated
-    public GuiComputer( Container container, ComputerFamily family, IComputer computer, int termWidth, int termHeight )
-    {
-        this( container, family, (ClientComputer) computer, termWidth, termHeight );
+        terminal = null;
     }
 
     public GuiComputer( TileComputer computer )
@@ -62,133 +54,103 @@ public class GuiComputer extends GuiContainer
     }
 
     @Override
-    public void initGui()
+    protected void onInitialized()
     {
-        super.initGui();
-        Keyboard.enableRepeatEvents( true );
+        client.keyboard.enableRepeatEvents( true );
 
-        m_terminal = new WidgetTerminal( 0, 0, m_termWidth, m_termHeight, () -> m_computer, 2, 2, 2, 2 );
-        m_terminal.setAllowFocusLoss( false );
-        xSize = m_terminal.getWidth() + 24;
-        ySize = m_terminal.getHeight() + 24;
+        int termPxWidth = m_termWidth * FixedWidthFontRenderer.FONT_WIDTH;
+        int termPxHeight = m_termHeight * FixedWidthFontRenderer.FONT_HEIGHT;
+
+        containerWidth = termPxWidth + 4 + 24;
+        containerHeight = termPxHeight + 4 + 24;
+
+        super.onInitialized();
+
+        terminal = new WidgetTerminal( client, () -> m_computer, m_termWidth, m_termHeight, 2, 2, 2, 2 );
+        terminalWrapper = new WidgetWrapper( terminal, 2 + 12 + left, 2 + 12 + top, termPxWidth, termPxHeight );
+
+        listeners.add( terminalWrapper );
+        setFocused( terminalWrapper );
     }
 
     @Override
-    public void onGuiClosed()
+    public void onClosed()
     {
-        super.onGuiClosed();
-        Keyboard.enableRepeatEvents( false );
+        listeners.remove( terminal );
+        terminal = null;
+        client.keyboard.enableRepeatEvents( false );
     }
 
     @Override
-    public boolean doesGuiPauseGame()
+    public void update()
     {
-        return false;
+        super.update();
+        terminal.update();
     }
 
     @Override
-    public void updateScreen()
-    {
-        super.updateScreen();
-        m_terminal.update();
-    }
-
-    @Override
-    protected void keyTyped( char c, int k ) throws IOException
-    {
-        if( k == 1 )
-        {
-            super.keyTyped( c, k );
-        }
-        else
-        {
-            if( m_terminal.onKeyTyped( c, k ) ) keyHandled = true;
-        }
-    }
-
-    @Override
-    protected void mouseClicked( int x, int y, int button )
-    {
-        int startX = (width - m_terminal.getWidth()) / 2;
-        int startY = (height - m_terminal.getHeight()) / 2;
-        m_terminal.mouseClicked( x - startX, y - startY, button );
-    }
-
-    @Override
-    public void handleMouseInput() throws IOException
-    {
-        super.handleMouseInput();
-
-        int x = Mouse.getEventX() * width / mc.displayWidth;
-        int y = height - Mouse.getEventY() * height / mc.displayHeight - 1;
-        int startX = (width - m_terminal.getWidth()) / 2;
-        int startY = (height - m_terminal.getHeight()) / 2;
-        m_terminal.handleMouseInput( x - startX, y - startY );
-    }
-
-    @Override
-    public void handleKeyboardInput() throws IOException
-    {
-        super.handleKeyboardInput();
-        if( m_terminal.onKeyboardInput() ) keyHandled = true;
-    }
-
-    @Override
-    protected void drawGuiContainerForegroundLayer( int par1, int par2 )
-    {
-    }
-
-    @Override
-    protected void drawGuiContainerBackgroundLayer( float var1, int var2, int var3 )
-    {
-    }
-
-    @Override
-    public void drawScreen( int mouseX, int mouseY, float f )
+    public void draw( int mouseX, int mouseY, float f )
     {
         // Work out where to draw
-        int startX = (width - m_terminal.getWidth()) / 2;
-        int startY = (height - m_terminal.getHeight()) / 2;
-        int endX = startX + m_terminal.getWidth();
-        int endY = startY + m_terminal.getHeight();
-
-        // Draw background
-        drawDefaultBackground();
+        int startX = terminalWrapper.getX() - 2;
+        int startY = terminalWrapper.getY() - 2;
+        int endX = startX + terminalWrapper.getWidth() + 4;
+        int endY = startY + terminalWrapper.getHeight() + 4;
 
         // Draw terminal
-        m_terminal.draw( this.mc, startX, startY, mouseX, mouseY );
+        terminal.draw( terminalWrapper.getX(), terminalWrapper.getY() );
 
         // Draw a border around the terminal
-        GlStateManager.color( 1.0f, 1.0f, 1.0f, 1.0f );
+        GlStateManager.color4f( 1.0f, 1.0f, 1.0f, 1.0f );
         switch( m_family )
         {
             case Normal:
             default:
             {
-                this.mc.getTextureManager().bindTexture( BACKGROUND );
+                client.getTextureManager().bindTexture( BACKGROUND_NORMAL );
                 break;
             }
             case Advanced:
             {
-                this.mc.getTextureManager().bindTexture( BACKGROUND_ADVANCED );
+                client.getTextureManager().bindTexture( BACKGROUND_ADVANCED );
                 break;
             }
             case Command:
             {
-                this.mc.getTextureManager().bindTexture( BACKGROUND_COMMAND );
+                client.getTextureManager().bindTexture( BACKGROUND_COMMAND );
                 break;
             }
         }
 
-        drawTexturedModalRect( startX - 12, startY - 12, 12, 28, 12, 12 );
-        drawTexturedModalRect( startX - 12, endY, 12, 40, 12, 16 );
-        drawTexturedModalRect( endX, startY - 12, 24, 28, 12, 12 );
-        drawTexturedModalRect( endX, endY, 24, 40, 12, 16 );
+        drawTexturedRect( startX - 12, startY - 12, 12, 28, 12, 12 );
+        drawTexturedRect( startX - 12, endY, 12, 40, 12, 16 );
+        drawTexturedRect( endX, startY - 12, 24, 28, 12, 12 );
+        drawTexturedRect( endX, endY, 24, 40, 12, 16 );
 
-        drawTexturedModalRect( startX, startY - 12, 0, 0, endX - startX, 12 );
-        drawTexturedModalRect( startX, endY, 0, 12, endX - startX, 16 );
+        drawTexturedRect( startX, startY - 12, 0, 0, endX - startX, 12 );
+        drawTexturedRect( startX, endY, 0, 12, endX - startX, 16 );
 
-        drawTexturedModalRect( startX - 12, startY, 0, 28, 12, endY - startY );
-        drawTexturedModalRect( endX, startY, 36, 28, 12, endY - startY );
+        drawTexturedRect( startX - 12, startY, 0, 28, 12, endY - startY );
+        drawTexturedRect( endX, startY, 36, 28, 12, endY - startY );
+    }
+
+    @Override
+    protected void drawBackground( float v, int i, int i1 )
+    {
+        drawBackground( 0 );
+    }
+
+    @Override
+    public boolean mouseDragged( double x, double y, int button, double deltaX, double deltaY )
+    {
+        return (getFocused() != null && getFocused().mouseDragged( x, y, button, deltaX, deltaY ))
+            || super.mouseDragged( x, y, button, deltaX, deltaY );
+    }
+
+    @Override
+    public boolean mouseReleased( double x, double y, int button )
+    {
+        return (getFocused() != null && getFocused().mouseReleased( x, y, button ))
+            || super.mouseReleased( x, y, button );
     }
 }

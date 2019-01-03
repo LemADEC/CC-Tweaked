@@ -6,12 +6,12 @@
 
 package dan200.computercraft.shared.network.client;
 
-import dan200.computercraft.shared.computer.blocks.ComputerState;
+import dan200.computercraft.ComputerCraft;
+import dan200.computercraft.shared.computer.core.ComputerState;
 import dan200.computercraft.shared.computer.core.ServerComputer;
-import dan200.computercraft.shared.network.NetworkMessages;
-import dan200.computercraft.shared.util.NBTUtil;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.network.PacketBuffer;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.PacketByteBuf;
 
 import javax.annotation.Nonnull;
 
@@ -20,8 +20,10 @@ import javax.annotation.Nonnull;
  */
 public class ComputerDataClientMessage extends ComputerClientMessage
 {
+    private static final Identifier ID = new Identifier( ComputerCraft.MOD_ID, "computer_changed" );
+
     private ComputerState state;
-    private NBTTagCompound userData;
+    private CompoundTag userData;
 
     public ComputerDataClientMessage( ServerComputer computer )
     {
@@ -35,9 +37,9 @@ public class ComputerDataClientMessage extends ComputerClientMessage
     }
 
     @Override
-    public int getId()
+    public @Nonnull Identifier getId()
     {
-        return NetworkMessages.COMPUTER_DATA_CLIENT_MESSAGE;
+        return ID;
     }
 
     public ComputerState getState()
@@ -45,24 +47,24 @@ public class ComputerDataClientMessage extends ComputerClientMessage
         return state;
     }
 
-    public NBTTagCompound getUserData()
+    public CompoundTag getUserData()
     {
         return userData;
     }
 
     @Override
-    public void toBytes( @Nonnull PacketBuffer buf )
+    public void toBytes( @Nonnull PacketByteBuf buf )
     {
         super.toBytes( buf );
-        buf.writeEnumValue( state );
+        buf.writeEnumConstant( state );
         buf.writeCompoundTag( userData );
     }
 
     @Override
-    public void fromBytes( @Nonnull PacketBuffer buf )
+    public void fromBytes( @Nonnull PacketByteBuf buf )
     {
         super.fromBytes( buf );
-        state = buf.readEnumValue( ComputerState.class );
-        userData = NBTUtil.readCompoundTag( buf );
+        state = buf.readEnumConstant( ComputerState.class );
+        userData = buf.readCompoundTag();
     }
 }

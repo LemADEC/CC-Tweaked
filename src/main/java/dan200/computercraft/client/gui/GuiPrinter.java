@@ -6,15 +6,15 @@
 
 package dan200.computercraft.client.gui;
 
+import com.mojang.blaze3d.platform.GlStateManager;
 import dan200.computercraft.shared.peripheral.printer.ContainerPrinter;
-import net.minecraft.client.gui.inventory.GuiContainer;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.resources.I18n;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.client.gui.ContainerGui;
+import net.minecraft.client.resource.language.I18n;
+import net.minecraft.util.Identifier;
 
-public class GuiPrinter extends GuiContainer
+public class GuiPrinter extends ContainerGui
 {
-    private static final ResourceLocation BACKGROUND = new ResourceLocation( "computercraft", "textures/gui/printer.png" );
+    private static final Identifier BACKGROUND = new Identifier( "computercraft", "textures/gui/printer.png" );
 
     private final ContainerPrinter m_container;
 
@@ -25,34 +25,31 @@ public class GuiPrinter extends GuiContainer
     }
 
     @Override
-    protected void drawGuiContainerForegroundLayer( int par1, int par2 )
+    protected void drawForeground( int par1, int par2 )
     {
-        String title = m_container.getPrinter().getDisplayName().getUnformattedText();
-        fontRenderer.drawString( title, (xSize - fontRenderer.getStringWidth( title )) / 2, 6, 0x404040 );
-        fontRenderer.drawString( I18n.format( "container.inventory" ), 8, (ySize - 96) + 2, 0x404040 );
+        String title = m_container.getPrinter().getDisplayName().getString();
+        fontRenderer.draw( title, (containerWidth - fontRenderer.getStringWidth( title )) / 2.0f, 6, 0x404040 );
+        fontRenderer.draw( I18n.translate( "container.inventory" ), 8, (containerHeight - 96) + 2, 0x404040 );
     }
 
     @Override
-    protected void drawGuiContainerBackgroundLayer( float f, int i, int j )
+    protected void drawBackground( float f, int i, int j )
     {
-        GlStateManager.color( 1.0F, 1.0F, 1.0F, 1.0F );
-        this.mc.getTextureManager().bindTexture( BACKGROUND );
-        int startX = (width - xSize) / 2;
-        int startY = (height - ySize) / 2;
-        drawTexturedModalRect( startX, startY, 0, 0, xSize, ySize );
+        GlStateManager.color4f( 1.0F, 1.0F, 1.0F, 1.0F );
+        client.getTextureManager().bindTexture( BACKGROUND );
+        int startX = (width - containerWidth) / 2;
+        int startY = (height - containerHeight) / 2;
+        drawTexturedRect( startX, startY, 0, 0, containerWidth, containerHeight );
 
         boolean printing = m_container.isPrinting();
-        if( printing )
-        {
-            drawTexturedModalRect( startX + 34, startY + 21, 176, 0, 25, 45 );
-        }
+        if( printing ) drawTexturedRect( startX + 34, startY + 21, 176, 0, 25, 45 );
     }
 
     @Override
-    public void drawScreen( int mouseX, int mouseY, float partialTicks )
+    public void draw( int mouseX, int mouseY, float partialTicks )
     {
-        drawDefaultBackground();
-        super.drawScreen( mouseX, mouseY, partialTicks );
-        renderHoveredToolTip( mouseX, mouseY );
+        drawBackground();
+        super.draw( mouseX, mouseY, partialTicks );
+        drawMousoverTooltip( mouseX, mouseY );
     }
 }

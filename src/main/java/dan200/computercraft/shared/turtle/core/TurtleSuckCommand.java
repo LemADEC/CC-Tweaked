@@ -10,17 +10,19 @@ import dan200.computercraft.api.turtle.ITurtleAccess;
 import dan200.computercraft.api.turtle.ITurtleCommand;
 import dan200.computercraft.api.turtle.TurtleAnimation;
 import dan200.computercraft.api.turtle.TurtleCommandResult;
+import dan200.computercraft.api.turtle.event.TurtleEvent;
 import dan200.computercraft.api.turtle.event.TurtleInventoryEvent;
 import dan200.computercraft.shared.util.InventoryUtil;
+import dan200.computercraft.shared.util.ItemStorage;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.item.EntityItem;
+import net.minecraft.entity.ItemEntity;
+import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.predicate.entity.EntityPredicates;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.BoundingBox;
+import net.minecraft.util.math.Direction;
 import net.minecraft.world.World;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -48,36 +50,37 @@ public class TurtleSuckCommand implements ITurtleCommand
         }
 
         // Get world direction from direction
-        EnumFacing direction = m_direction.toWorldDir( turtle );
+        Direction direction = m_direction.toWorldDir( turtle );
 
         // Get inventory for thing in front
         World world = turtle.getWorld();
         BlockPos oldPosition = turtle.getPosition();
         BlockPos newPosition = oldPosition.offset( direction );
-        EnumFacing side = direction.getOpposite();
+        Direction side = direction.getOpposite();
 
-        IItemHandler inventory = InventoryUtil.getInventory( world, newPosition, side );
+        Inventory inventory = InventoryUtil.getInventory( world, newPosition, side );
 
         // Fire the event, exiting if it is cancelled.
         TurtlePlayer player = TurtlePlaceCommand.createPlayer( turtle, oldPosition, direction );
         TurtleInventoryEvent.Suck event = new TurtleInventoryEvent.Suck( turtle, player, world, newPosition, inventory );
-        if( MinecraftForge.EVENT_BUS.post( event ) )
+        if( TurtleEvent.post( event ) )
         {
             return TurtleCommandResult.failure( event.getFailureMessage() );
         }
 
         if( inventory != null )
         {
+            ItemStorage storage = ItemStorage.wrap( inventory, side );
             // Take from inventory of thing in front
-            ItemStack stack = InventoryUtil.takeItems( m_quantity, inventory );
+            ItemStack stack = InventoryUtil.takeItems( m_quantity, storage );
             if( !stack.isEmpty() )
             {
                 // Try to place into the turtle
-                ItemStack remainder = InventoryUtil.storeItems( stack, turtle.getItemHandler(), turtle.getSelectedSlot() );
+                ItemStack remainder = InventoryUtil.storeItems( stack, ItemStorage.wrap( turtle.getInventory() ), turtle.getSelectedSlot() );
                 if( !remainder.isEmpty() )
                 {
                     // Put the remainder back in the inventory
-                    InventoryUtil.storeItems( remainder, inventory );
+                    InventoryUtil.storeItems( remainder, storage );
                 }
 
                 // Return true if we consumed anything
@@ -96,28 +99,28 @@ public class TurtleSuckCommand implements ITurtleCommand
         else
         {
             // Suck up loose items off the ground
-            AxisAlignedBB aabb = new AxisAlignedBB(
+            BoundingBox aabb = new BoundingBox(
                 newPosition.getX(), newPosition.getY(), newPosition.getZ(),
                 newPosition.getX() + 1.0, newPosition.getY() + 1.0, newPosition.getZ() + 1.0
             );
-            List<Entity> list = world.getEntitiesWithinAABBExcludingEntity( null, aabb );
+            List<Entity> list = world.getEntities( (Entity) null, aabb, EntityPredicates.VALID_ENTITY );
             if( list.size() > 0 )
             {
                 boolean foundItems = false;
                 boolean storedItems = false;
                 for( Entity entity : list )
                 {
-                    if( entity instanceof EntityItem && !entity.isDead )
+                    if( entity instanceof ItemEntity && !entity.isValid() )
                     {
                         // Suck up the item
                         foundItems = true;
-                        EntityItem entityItem = (EntityItem) entity;
-                        ItemStack stack = entityItem.getItem().copy();
+                        ItemEntity entityItem = (ItemEntity) entity;
+                        ItemStack stack = entityItem.getStack().copy();
                         ItemStack storeStack;
                         ItemStack leaveStack;
-                        if( stack.getCount() > m_quantity )
+                        if( stack.getAmount() > m_quantity )
                         {
-                            storeStack = stack.splitStack( m_quantity );
+                            storeStack = stack.split( m_quantity );
                             leaveStack = stack;
                         }
                         else
@@ -125,26 +128,26 @@ public class TurtleSuckCommand implements ITurtleCommand
                             storeStack = stack;
                             leaveStack = ItemStack.EMPTY;
                         }
-                        ItemStack remainder = InventoryUtil.storeItems( storeStack, turtle.getItemHandler(), turtle.getSelectedSlot() );
+                        ItemStack remainder = InventoryUtil.storeItems( storeStack, ItemStorage.wrap( turtle.getInventory() ), turtle.getSelectedSlot() );
                         if( remainder != storeStack )
                         {
                             storedItems = true;
                             if( remainder.isEmpty() && leaveStack.isEmpty() )
                             {
-                                entityItem.setDead();
+                                entityItem.invalidate();
                             }
                             else if( remainder.isEmpty() )
                             {
-                                entityItem.setItem( leaveStack );
+                                entityItem.setStack( leaveStack );
                             }
                             else if( leaveStack.isEmpty() )
                             {
-                                entityItem.setItem( remainder );
+                                entityItem.setStack( remainder );
                             }
                             else
                             {
-                                leaveStack.grow( remainder.getCount() );
-                                entityItem.setItem( leaveStack );
+                                leaveStack.addAmount( remainder.getAmount() );
+                                entityItem.setStack( leaveStack );
                             }
                             break;
                         }
@@ -156,7 +159,7 @@ public class TurtleSuckCommand implements ITurtleCommand
                     if( storedItems )
                     {
                         // Play fx
-                        world.playBroadcastSound( 1000, oldPosition, 0 );
+                        world.fireWorldEvent( 1000, oldPosition, 0 ); // BLOCK_DISPENSER_DISPENSE
                         turtle.playAnimation( TurtleAnimation.Wait );
                         return TurtleCommandResult.success();
                     }

@@ -6,7 +6,7 @@
 
 package dan200.computercraft.shared.util;
 
-import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.CompoundTag;
 
 public class Palette
 {
@@ -80,7 +80,7 @@ public class Palette
             };
     }
 
-    public NBTTagCompound writeToNBT( NBTTagCompound nbt )
+    public CompoundTag writeToNBT( CompoundTag nbt )
     {
         int[] rgb8 = new int[colours.length];
 
@@ -89,13 +89,13 @@ public class Palette
             rgb8[i] = encodeRGB8( colours[i] );
         }
 
-        nbt.setIntArray( "term_palette", rgb8 );
+        nbt.putIntArray( "term_palette", rgb8 );
         return nbt;
     }
 
-    public void readFromNBT( NBTTagCompound nbt )
+    public void readFromNBT( CompoundTag nbt )
     {
-        if( !nbt.hasKey( "term_palette" ) ) return;
+        if( !nbt.containsKey( "term_palette" ) ) return;
         int[] rgb8 = nbt.getIntArray( "term_palette" );
 
         if( rgb8.length != colours.length ) return;

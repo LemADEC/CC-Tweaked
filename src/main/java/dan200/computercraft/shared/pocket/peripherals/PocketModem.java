@@ -6,65 +6,56 @@
 
 package dan200.computercraft.shared.pocket.peripherals;
 
+import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.api.peripheral.IPeripheral;
 import dan200.computercraft.api.pocket.IPocketAccess;
-import dan200.computercraft.shared.peripheral.PeripheralType;
-import dan200.computercraft.shared.peripheral.common.PeripheralItemFactory;
 import dan200.computercraft.shared.peripheral.modem.ModemState;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityLivingBase;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.Identifier;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class PocketModem extends AbstractPocketUpgrade
 {
-    private final boolean advanced;
+    private final boolean m_advanced;
 
     public PocketModem( boolean advanced )
     {
         super(
+            new Identifier( "computercraft", advanced ? "advanced_modem" : "wireless_modem" ),
             advanced
-                ? new ResourceLocation( "computercraft", "advanved_modem" )
-                : new ResourceLocation( "computercraft", "wireless_modem" ),
+                ? "upgrade.computercraft.wireless_modem_advanced.adjective"
+                : "upgrade.computercraft.wireless_modem_normal.adjective",
             advanced
-                ? "upgrade.computercraft:advanced_modem.adjective"
-                : "upgrade.computercraft:wireless_modem.adjective",
-            PeripheralItemFactory.create(
-                advanced ? PeripheralType.AdvancedModem : PeripheralType.WirelessModem,
-                null, 1
-            )
+                ? ComputerCraft.Blocks.wirelessModemAdvanced
+                : ComputerCraft.Blocks.wirelessModemNormal
         );
-        this.advanced = advanced;
+        this.m_advanced = advanced;
     }
 
     @Nullable
     @Override
     public IPeripheral createPeripheral( @Nonnull IPocketAccess access )
     {
-        return new PocketModemPeripheral( advanced );
+        return new PocketModemPeripheral( m_advanced );
     }
 
     @Override
     public void update( @Nonnull IPocketAccess access, @Nullable IPeripheral peripheral )
     {
-        if( !(peripheral instanceof PocketModemPeripheral) ) return;
-
-        Entity entity = access.getEntity();
-
-        PocketModemPeripheral modem = (PocketModemPeripheral) peripheral;
-        if( entity instanceof EntityLivingBase )
+        if( peripheral instanceof PocketModemPeripheral )
         {
-            EntityLivingBase player = (EntityLivingBase) entity;
-            modem.setLocation( entity.getEntityWorld(), player.posX, player.posY + player.getEyeHeight(), player.posZ );
-        }
-        else if( entity != null )
-        {
-            modem.setLocation( entity.getEntityWorld(), entity.posX, entity.posY, entity.posZ );
-        }
+            PocketModemPeripheral modem = (PocketModemPeripheral) peripheral;
 
-        ModemState state = modem.getModemState();
-        if( state.pollChanged() ) access.setLight( state.isOpen() ? 0xBA0000 : -1 );
+            Entity entity = access.getEntity();
+            if( entity != null )
+            {
+                modem.setLocation( entity.getEntityWorld(), entity.x, entity.y + entity.getEyeHeight(), entity.z );
+            }
+
+            ModemState state = modem.getModemState();
+            if( state.pollChanged() ) access.setLight( state.isOpen() ? 0xBA0000 : -1 );
+        }
     }
 }

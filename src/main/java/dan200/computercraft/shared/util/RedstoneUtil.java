@@ -6,33 +6,26 @@
 
 package dan200.computercraft.shared.util;
 
-import dan200.computercraft.shared.BundledRedstone;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.init.Blocks;
-import net.minecraft.util.EnumFacing;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.world.World;
 
 public class RedstoneUtil
 {
-    @Deprecated
-    public static int getBundledRedstoneOutput( World world, BlockPos pos, EnumFacing side )
-    {
-        return BundledRedstone.getOutput( world, pos, side );
-    }
-
-    public static void propagateRedstoneOutput( World world, BlockPos pos, EnumFacing side )
+    public static void propagateRedstoneOutput( World world, BlockPos pos, Direction side )
     {
         // Propagate ordinary output
-        IBlockState block = world.getBlockState( pos );
+        BlockState block = world.getBlockState( pos );
         BlockPos neighbourPos = pos.offset( side );
-        IBlockState neighbour = world.getBlockState( neighbourPos );
+        BlockState neighbour = world.getBlockState( neighbourPos );
         if( neighbour.getBlock() != Blocks.AIR )
         {
-            world.neighborChanged( neighbourPos, block.getBlock(), pos );
-            if( neighbour.getBlock().isNormalCube( neighbour, world, neighbourPos ) )
+            world.updateNeighbor( neighbourPos, block.getBlock(), pos );
+            if( neighbour.isSimpleFullBlock( world, neighbourPos ) )
             {
-                world.notifyNeighborsOfStateExcept( neighbourPos, block.getBlock(), side.getOpposite() );
+                world.updateNeighborsExcept( neighbourPos, block.getBlock(), side.getOpposite() );
             }
         }
     }

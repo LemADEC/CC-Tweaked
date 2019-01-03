@@ -9,8 +9,8 @@ package dan200.computercraft.shared.network.client;
 import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.shared.computer.core.ClientComputer;
 import dan200.computercraft.shared.network.NetworkMessage;
-import net.minecraft.network.PacketBuffer;
-import net.minecraftforge.fml.relauncher.Side;
+import net.fabricmc.fabric.networking.CustomPayloadPacketRegistry;
+import net.minecraft.util.PacketByteBuf;
 
 import javax.annotation.Nonnull;
 import java.util.function.BiConsumer;
@@ -38,13 +38,13 @@ public abstract class ComputerClientMessage implements NetworkMessage
     }
 
     @Override
-    public void toBytes( @Nonnull PacketBuffer buf )
+    public void toBytes( @Nonnull PacketByteBuf buf )
     {
         buf.writeVarInt( instanceId );
     }
 
     @Override
-    public void fromBytes( @Nonnull PacketBuffer buf )
+    public void fromBytes( @Nonnull PacketByteBuf buf )
     {
         instanceId = buf.readVarInt();
     }
@@ -61,7 +61,7 @@ public abstract class ComputerClientMessage implements NetworkMessage
 
     public static <T extends ComputerClientMessage> void register( Supplier<T> factory, BiConsumer<ClientComputer, T> handler )
     {
-        NetworkMessage.registerMainThread( Side.CLIENT, factory, ( context, packet ) -> {
+        NetworkMessage.registerMainThread( CustomPayloadPacketRegistry.CLIENT, factory, ( context, packet ) -> {
             ClientComputer computer = packet.getComputer();
             if( computer != null ) handler.accept( computer, packet );
         } );

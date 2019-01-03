@@ -9,11 +9,10 @@ package dan200.computercraft.shared.computer.core;
 import com.google.common.base.Objects;
 import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.shared.common.ClientTerminal;
-import dan200.computercraft.shared.computer.blocks.ComputerState;
 import dan200.computercraft.shared.network.server.ComputerActionServerMessage;
 import dan200.computercraft.shared.network.server.QueueEventServerMessage;
 import dan200.computercraft.shared.network.server.RequestComputerMessage;
-import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.CompoundTag;
 
 public class ClientComputer extends ClientTerminal implements IComputer
 {
@@ -22,7 +21,7 @@ public class ClientComputer extends ClientTerminal implements IComputer
     private boolean m_on = false;
     private boolean m_blinking = false;
     private boolean m_changed = true;
-    private NBTTagCompound m_userData = null;
+    private CompoundTag m_userData = null;
 
     private boolean m_changedLastFrame = false;
 
@@ -45,7 +44,7 @@ public class ClientComputer extends ClientTerminal implements IComputer
         return m_changedLastFrame;
     }
 
-    public NBTTagCompound getUserData()
+    public CompoundTag getUserData()
     {
         return m_userData;
     }
@@ -79,7 +78,7 @@ public class ClientComputer extends ClientTerminal implements IComputer
     @Override
     public void turnOn()
     {
-        // Send turnOn to server
+        // Send turn on to server
         ComputerCraft.sendToServer( new ComputerActionServerMessage( m_instanceID, ComputerActionServerMessage.Action.TURN_ON ) );
     }
 
@@ -104,14 +103,14 @@ public class ClientComputer extends ClientTerminal implements IComputer
         ComputerCraft.sendToServer( new QueueEventServerMessage( m_instanceID, event, arguments ) );
     }
 
-    public void setState( ComputerState state, NBTTagCompound userData )
+    public void setState( ComputerState state, CompoundTag userData )
     {
         boolean oldOn = m_on;
         boolean oldBlinking = m_blinking;
-        NBTTagCompound oldUserData = m_userData;
+        CompoundTag oldUserData = this.m_userData;
 
-        m_on = state != ComputerState.Off;
-        m_blinking = state == ComputerState.Blinking;
+        m_on = state != ComputerState.OFF;
+        m_blinking = state == ComputerState.BLINKING;
         m_userData = userData;
 
         m_changed |= m_on != oldOn || m_blinking != oldBlinking || !Objects.equal( m_userData, oldUserData );

@@ -6,70 +6,69 @@
 
 package dan200.computercraft.shared.computer.recipe;
 
+import checkers.nullness.quals.NonNull;
 import dan200.computercraft.shared.computer.items.IComputerItem;
-import net.minecraft.inventory.InventoryCrafting;
+import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.crafting.Ingredient;
-import net.minecraft.item.crafting.ShapedRecipes;
+import net.minecraft.recipe.Ingredient;
+import net.minecraft.recipe.crafting.ShapedRecipe;
+import net.minecraft.util.DefaultedList;
+import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
-import net.minecraftforge.common.crafting.CraftingHelper;
 
 import javax.annotation.Nonnull;
 
 /**
  * Represents a recipe which converts a computer from one form into another.
  */
-public abstract class ComputerConvertRecipe extends ShapedRecipes
+public abstract class ComputerConvertRecipe extends ShapedRecipe
 {
-    public ComputerConvertRecipe( String group, @Nonnull CraftingHelper.ShapedPrimer primer, @Nonnull ItemStack result )
+    private final String group;
+
+    public ComputerConvertRecipe( Identifier identifier, String group, int width, int height, DefaultedList<Ingredient> ingredients, ItemStack result )
     {
-        super( group, primer.width, primer.height, primer.input, result );
+        super( identifier, group, width, height, ingredients, result );
+        this.group = group;
     }
 
     @Nonnull
-    protected abstract ItemStack convert( IComputerItem item, @Nonnull ItemStack stack );
+    protected abstract ItemStack convert( @NonNull IComputerItem item, @Nonnull ItemStack stack );
 
     @Override
-    public boolean matches( @Nonnull InventoryCrafting inventory, @Nonnull World world )
+    public boolean matches( @Nonnull Inventory inventory, @Nonnull World world )
     {
-        // See if we match the recipe, and extract the input computercraft ID
-        ItemStack computerStack = null;
-        for( int y = 0; y < 3; y++ )
+        if( !super.matches( inventory, world ) ) return false;
+
+        for( int i = 0; i < inventory.getInvSize(); i++ )
         {
-            for( int x = 0; x < 3; x++ )
+            if( inventory.getInvStack( i ).getItem() instanceof IComputerItem )
             {
-                ItemStack stack = inventory.getStackInRowAndColumn( x, y );
-                Ingredient target = getIngredients().get( x + y * 3 );
-
-                // First verify we match the ingredient
-                if( !target.apply( stack ) ) return false;
-
-                // We want to ensure we have a computer item somewhere in the recipe
-                if( stack.getItem() instanceof IComputerItem ) computerStack = stack;
+                return true;
             }
         }
 
-        return computerStack != null;
+        return false;
     }
 
     @Nonnull
     @Override
-    public ItemStack getCraftingResult( @Nonnull InventoryCrafting inventory )
+    public ItemStack craft( @Nonnull Inventory inventory )
     {
-        for( int y = 0; y < 3; y++ )
+        for( int i = 0; i < inventory.getInvSize(); i++ )
         {
-            for( int x = 0; x < 3; x++ )
+            ItemStack stack = inventory.getInvStack( i );
+            if( stack.getItem() instanceof IComputerItem )
             {
-                ItemStack stack = inventory.getStackInRowAndColumn( x, y );
-
-                // If we're a computer, convert!
-                if( stack.getItem() instanceof IComputerItem )
-                {
-                    return convert( ((IComputerItem) stack.getItem()), stack );
-                }
+                return convert( (IComputerItem) stack.getItem(), stack );
             }
         }
 
         return ItemStack.EMPTY;
+    }
+
+    @Override
+    public String getGroup()
+    {
+        return group;
     }
 }

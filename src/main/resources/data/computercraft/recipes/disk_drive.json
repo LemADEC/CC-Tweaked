@@ -1,0 +1,13 @@
+{
+    "type": "crafting_shaped",
+    "pattern": [
+        "###",
+        "#R#",
+        "#R#"
+    ],
+    "key": {
+        "#": { "item": "minecraft:stone" },
+        "R": { "item": "minecraft:redstone" }
+    },
+    "result": { "item": "computercraft:disk_drive" }
+}

@@ -7,19 +7,20 @@
 package dan200.computercraft.shared.computer.apis;
 
 import com.google.common.collect.ImmutableMap;
+import com.mojang.brigadier.CommandDispatcher;
 import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.api.lua.ILuaAPI;
 import dan200.computercraft.api.lua.ILuaContext;
 import dan200.computercraft.api.lua.LuaException;
 import dan200.computercraft.shared.computer.blocks.TileCommandComputer;
 import net.minecraft.block.Block;
-import net.minecraft.block.properties.IProperty;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.command.ICommand;
-import net.minecraft.command.ICommandManager;
-import net.minecraft.command.ICommandSender;
+import net.minecraft.block.BlockState;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.command.ServerCommandManager;
+import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.state.property.Property;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.registry.Registry;
 import net.minecraft.world.World;
 
 import javax.annotation.Nonnull;
@@ -71,24 +72,20 @@ public class CommandAPI implements ILuaAPI
 
     private Object[] doCommand( String command )
     {
-        MinecraftServer server = m_computer.getWorld().getMinecraftServer();
-        if( server != null && server.isCommandBlockEnabled() )
+        MinecraftServer server = m_computer.getWorld().getServer();
+        if( server != null && server.areCommandBlocksEnabled() )
         {
-            ICommandManager commandManager = server.getCommandManager();
+            ServerCommandManager commandManager = server.getCommandManager();
+            TileCommandComputer.CommandReceiver receiver = m_computer.getReceiver();
             try
             {
-                TileCommandComputer.CommandSender sender = m_computer.getCommandSender();
-                sender.clearOutput();
-
-                int result = commandManager.executeCommand( sender, command );
-                return new Object[] { (result > 0), sender.copyOutput() };
+                receiver.clearOutput();
+                int result = commandManager.execute( m_computer.getSource(), command );
+                return new Object[] { (result > 0), receiver.copyOutput() };
             }
             catch( Throwable t )
             {
-                if( ComputerCraft.logPeripheralErrors )
-                {
-                    ComputerCraft.log.error( "Error running command.", t );
-                }
+                if( ComputerCraft.logPeripheralErrors ) ComputerCraft.log.error( "Error running command.", t );
                 return new Object[] { false, createOutput( "Java Exception Thrown: " + t.toString() ) };
             }
         }
@@ -101,17 +98,15 @@ public class CommandAPI implements ILuaAPI
     private Object getBlockInfo( World world, BlockPos pos )
     {
         // Get the details of the block
-        IBlockState state = world.getBlockState( pos );
+        BlockState state = world.getBlockState( pos );
         Block block = state.getBlock();
-        String name = Block.REGISTRY.getNameForObject( block ).toString();
-        int metadata = block.getMetaFromState( state );
+        String name = Registry.BLOCK.getId( block ).toString();
 
         Map<Object, Object> table = new HashMap<>();
         table.put( "name", name );
-        table.put( "metadata", metadata );
 
         Map<Object, Object> stateTable = new HashMap<>();
-        for( ImmutableMap.Entry<IProperty<?>, Comparable<?>> entry : state.getActualState( world, pos ).getProperties().entrySet() )
+        for( ImmutableMap.Entry<Property<?>, Comparable<?>> entry : state.getEntries().entrySet() )
         {
             String propertyName = entry.getKey().getName();
             Object value = entry.getValue();
@@ -154,32 +149,14 @@ public class CommandAPI implements ILuaAPI
                 {
                     int i = 1;
                     Map<Object, Object> result = new HashMap<>();
-                    MinecraftServer server = m_computer.getWorld().getMinecraftServer();
+                    MinecraftServer server = m_computer.getWorld().getServer();
                     if( server != null )
                     {
-                        ICommandManager commandManager = server.getCommandManager();
-                        ICommandSender commmandSender = m_computer.getCommandSender();
-                        Map<String, ICommand> commands = commandManager.getCommands();
-                        for( Map.Entry<String, ICommand> entry : commands.entrySet() )
-                        {
-                            String name = entry.getKey();
-                            ICommand command = entry.getValue();
-                            try
-                            {
-                                if( command.checkPermission( server, commmandSender ) )
-                                {
-                                    result.put( i++, name );
-                                }
-                            }
-                            catch( Throwable t )
-                            {
-                                // Ignore buggy command
-                                if( ComputerCraft.logPeripheralErrors )
-                                {
-                                    ComputerCraft.log.error( "Error checking permissions of command.", t );
-                                }
-                            }
-                        }
+                        CommandDispatcher<ServerCommandSource> dispatcher = server.getCommandManager().getDispatcher();
+                        ServerCommandSource source = m_computer.getSource();
+                        // TODO: How can we better integrate with the new command system?
+                        String[] commands = dispatcher.getAllUsage( dispatcher.getRoot(), source, true );
+                        for( String entry : commands ) result.put( i++, entry );
                     }
                     return new Object[] { result };
                 } );
@@ -214,7 +191,7 @@ public class CommandAPI implements ILuaAPI
                         Math.max( miny, maxy ),
                         Math.max( minz, maxz )
                     );
-                    if( !world.isValid( min ) || !world.isValid( max ) )
+                    if( !World.isValid( min ) || !World.isValid( max ) )
                     {
                         throw new LuaException( "Co-ordinates out or range" );
                     }
@@ -249,7 +226,7 @@ public class CommandAPI implements ILuaAPI
                     // Get the details of the block
                     World world = m_computer.getWorld();
                     BlockPos position = new BlockPos( x, y, z );
-                    if( world.isValid( position ) )
+                    if( World.isValid( position ) )
                     {
                         return new Object[] { getBlockInfo( world, position ) };
                     }

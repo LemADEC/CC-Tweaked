@@ -8,7 +8,7 @@ package dan200.computercraft.server.proxy;
 
 import dan200.computercraft.shared.proxy.ComputerCraftProxyCommon;
 import net.minecraft.world.World;
-import net.minecraftforge.common.DimensionManager;
+import net.minecraft.world.dimension.DimensionType;
 
 import java.io.File;
 
@@ -17,6 +17,6 @@ public class ComputerCraftProxyServer extends ComputerCraftProxyCommon
     @Override
     public File getWorldDir( World world )
     {
-        return DimensionManager.getWorld( 0 ).getSaveHandler().getWorldDirectory();
+        return world.getServer().getWorld( DimensionType.OVERWORLD ).getSaveHandler().getWorldDir();
     }
 }

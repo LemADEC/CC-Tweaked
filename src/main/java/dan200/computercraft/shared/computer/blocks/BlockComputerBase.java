@@ -6,78 +6,98 @@
 
 package dan200.computercraft.shared.computer.blocks;
 
-import dan200.computercraft.shared.common.BlockDirectional;
+import dan200.computercraft.ComputerCraft;
+import dan200.computercraft.shared.common.BlockGeneric;
+import dan200.computercraft.shared.common.BundledRedstoneBlock;
 import dan200.computercraft.shared.computer.core.ComputerFamily;
-import dan200.computercraft.shared.computer.items.ItemComputerBase;
-import net.minecraft.block.material.Material;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.item.Item;
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.EnumFacing;
+import dan200.computercraft.shared.computer.core.ServerComputer;
+import net.minecraft.block.BlockState;
+import net.minecraft.block.entity.BlockEntity;
+import net.minecraft.block.entity.BlockEntityType;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.IBlockAccess;
+import net.minecraft.util.math.Direction;
+import net.minecraft.world.BlockView;
 import net.minecraft.world.World;
 
-public abstract class BlockComputerBase extends BlockDirectional
+public abstract class BlockComputerBase<T extends TileComputerBase> extends BlockGeneric implements BundledRedstoneBlock
 {
-    public BlockComputerBase( Material material )
+    public static final Identifier COMPUTER_DROP = new Identifier( ComputerCraft.MOD_ID, "computer" );
+
+    private final ComputerFamily family;
+
+    protected BlockComputerBase( Settings settings, ComputerFamily family, BlockEntityType<? extends T> type )
     {
-        super( material );
+        super( settings, type );
+        this.family = family;
     }
 
+    public ComputerFamily getFamily()
+    {
+        return family;
+    }
+
+    /*
     @Override
-    public void onBlockAdded( World world, BlockPos pos, IBlockState state )
+    public void onBlockAdded( World world, BlockPos pos, BlockState state )
     {
         super.onBlockAdded( world, pos, state );
         updateInput( world, pos );
     }
+    */
 
     @Override
-    public void setDirection( World world, BlockPos pos, EnumFacing dir )
+    @Deprecated
+    public final boolean emitsRedstonePower( BlockState state )
     {
-        super.setDirection( world, pos, dir );
-        updateInput( world, pos );
-    }
-
-    protected abstract IBlockState getDefaultBlockState( ComputerFamily family, EnumFacing placedSide );
-
-    protected abstract ComputerFamily getFamily( int damage );
-
-    protected abstract ComputerFamily getFamily( IBlockState state );
-
-    protected abstract TileComputerBase createTile( ComputerFamily family );
-
-    @Override
-    protected final IBlockState getDefaultBlockState( int damage, EnumFacing placedSide )
-    {
-        ItemComputerBase item = (ItemComputerBase) Item.getItemFromBlock( this );
-        return getDefaultBlockState( item.getFamily( damage ), placedSide );
+        return true;
     }
 
     @Override
-    public final TileComputerBase createTile( IBlockState state )
+    @Deprecated
+    public int getStrongRedstonePower( BlockState state, BlockView world, BlockPos pos, Direction incomingSide )
     {
-        return createTile( getFamily( state ) );
+        BlockEntity entity = world.getBlockEntity( pos );
+        if( !(entity instanceof TileComputerBase) ) return 0;
+
+        TileComputerBase computerEntity = (TileComputerBase) entity;
+        ServerComputer computer = computerEntity.getServerComputer();
+        if( computer == null ) return 0;
+
+        Direction localSide = computerEntity.remapToLocalSide( incomingSide.getOpposite() );
+        return computerEntity.isRedstoneBlockedOnSide( localSide ) ? 0 :
+            computer.getRedstoneOutput( localSide.getId() );
     }
 
     @Override
-    public final TileComputerBase createTile( int damage )
+    @Deprecated
+    public int getWeakRedstonePower( BlockState state, BlockView world, BlockPos pos, Direction incomingSide )
     {
-        return createTile( getFamily( damage ) );
+        return getStrongRedstonePower( state, world, pos, incomingSide );
     }
 
-    public final ComputerFamily getFamily( IBlockAccess world, BlockPos pos )
+    @Override
+    public boolean getBundledRedstoneConnectivity( World world, BlockPos pos, Direction side )
     {
-        return getFamily( world.getBlockState( pos ) );
+        BlockEntity entity = world.getBlockEntity( pos );
+        if( !(entity instanceof TileComputerBase) ) return false;
+
+        TileComputerBase computerEntity = (TileComputerBase) entity;
+        return !computerEntity.isRedstoneBlockedOnSide( computerEntity.remapToLocalSide( side ) );
     }
 
-    protected void updateInput( IBlockAccess world, BlockPos pos )
+    @Override
+    public int getBundledRedstoneOutput( World world, BlockPos pos, Direction side )
     {
-        TileEntity tile = world.getTileEntity( pos );
-        if( tile instanceof TileComputerBase )
-        {
-            TileComputerBase computer = (TileComputerBase) tile;
-            computer.updateInput();
-        }
+        BlockEntity entity = world.getBlockEntity( pos );
+        if( !(entity instanceof TileComputerBase) ) return 0;
+
+        TileComputerBase computerEntity = (TileComputerBase) entity;
+        ServerComputer computer = computerEntity.getServerComputer();
+        if( computer == null ) return 0;
+
+        Direction localSide = computerEntity.remapToLocalSide( side );
+        return computerEntity.isRedstoneBlockedOnSide( localSide ) ? 0 :
+            computer.getBundledRedstoneOutput( localSide.getId() );
     }
 }

@@ -8,155 +8,105 @@ package dan200.computercraft.shared.computer.blocks;
 
 import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.shared.computer.apis.CommandAPI;
+import dan200.computercraft.shared.computer.core.ComputerFamily;
 import dan200.computercraft.shared.computer.core.ServerComputer;
-import io.netty.buffer.ByteBuf;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.player.EntityPlayer;
+import dan200.computercraft.shared.util.NamedBlockEntityType;
+import net.minecraft.block.entity.BlockEntityType;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.tileentity.CommandBlockBaseLogic;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.server.command.CommandOutput;
+import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.text.StringTextComponent;
+import net.minecraft.text.TextComponent;
+import net.minecraft.text.TranslatableTextComponent;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.math.Vec2f;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentString;
-import net.minecraft.util.text.TextComponentTranslation;
-import net.minecraft.world.World;
 
-import javax.annotation.Nonnull;
 import java.util.HashMap;
 import java.util.Map;
 
 public class TileCommandComputer extends TileComputer
 {
-    public class CommandSender extends CommandBlockBaseLogic
-    {
-        private Map<Integer, String> m_outputTable;
+    public static final NamedBlockEntityType<TileCommandComputer> FACTORY = NamedBlockEntityType.create(
+        new Identifier( ComputerCraft.MOD_ID, "command_commputer" ),
+        f -> new TileCommandComputer( ComputerFamily.Command, f )
+    );
 
-        public CommandSender()
-        {
-            m_outputTable = new HashMap<>();
-        }
+    public class CommandReceiver implements CommandOutput
+    {
+        private final Map<Integer, String> output = new HashMap<>();
 
         public void clearOutput()
         {
-            m_outputTable.clear();
+            output.clear();
         }
 
         public Map<Integer, String> getOutput()
         {
-            return m_outputTable;
+            return output;
         }
 
         public Map<Integer, String> copyOutput()
         {
-            return new HashMap<>( m_outputTable );
-        }
-
-        // ICommandSender
-
-        @Nonnull
-        @Override
-        public ITextComponent getDisplayName()
-        {
-            String label = getLabel();
-            return new TextComponentString( label != null ? label : "@" );
+            return new HashMap<>( output );
         }
 
         @Override
-        public void sendMessage( @Nonnull ITextComponent chatComponent )
+        public void appendCommandFeedback( TextComponent textComponent )
         {
-            m_outputTable.put( m_outputTable.size() + 1, chatComponent.getUnformattedText() );
+            output.put( output.size() + 1, textComponent.getText() );
         }
 
         @Override
-        public boolean canUseCommand( int level, String command )
+        public boolean sendCommandFeedback()
         {
-            return level <= 2;
-        }
-
-        @Nonnull
-        @Override
-        public BlockPos getPosition()
-        {
-            return TileCommandComputer.this.getPos();
-        }
-
-        @Nonnull
-        @Override
-        public Vec3d getPositionVector()
-        {
-            BlockPos pos = getPosition();
-            return new Vec3d( pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5 );
-        }
-
-        @Nonnull
-        @Override
-        public World getEntityWorld()
-        {
-            return TileCommandComputer.this.getWorld();
+            return getWorld().getGameRules().getBoolean( "sendCommandFeedback" );
         }
 
         @Override
-        public MinecraftServer getServer()
+        public boolean shouldTrackOutput()
         {
-            return TileCommandComputer.this.getWorld().getMinecraftServer();
+            return true;
         }
 
         @Override
-        public Entity getCommandSenderEntity()
+        public boolean shouldBroadcastConsoleToOps()
         {
-            return null;
-        }
-
-        // CommandBlockLogic members intentionally left empty
-        // The only reason we extend it at all is so that "gameRule commandBlockOutput" applies to us
-
-        @Override
-        public void updateCommand()
-        {
-        }
-
-        @Override
-        public int getCommandBlockType()
-        {
-            return 0;
-        }
-
-        @Override
-        public void fillInInfo( @Nonnull ByteBuf buf )
-        {
+            return getWorld().getGameRules().getBoolean( "commandBlockOutput" );
         }
     }
 
-    private CommandSender m_commandSender;
+    private final CommandReceiver receiver;
 
-    public TileCommandComputer()
+    public TileCommandComputer( ComputerFamily family, BlockEntityType<? extends TileCommandComputer> type )
     {
-        m_commandSender = new CommandSender();
+        super( family, type );
+        this.receiver = new CommandReceiver();
     }
 
-    @Override
-    public EnumFacing getDirection()
+    public CommandReceiver getReceiver()
     {
-        IBlockState state = getBlockState();
-        return state.getValue( BlockCommandComputer.Properties.FACING );
+        return receiver;
     }
 
-    @Override
-    public void setDirection( EnumFacing dir )
+    public ServerCommandSource getSource()
     {
-        if( dir.getAxis() == EnumFacing.Axis.Y )
+        ServerComputer computer = TileCommandComputer.this.getServerComputer();
+        String name = "@";
+        if( computer != null )
         {
-            dir = EnumFacing.NORTH;
+            String label = computer.getLabel();
+            if( label != null ) name = label;
         }
-        setBlockState( getBlockState().withProperty( BlockCommandComputer.Properties.FACING, dir ) );
-        updateInput();
-    }
 
-    public CommandSender getCommandSender()
-    {
-        return m_commandSender;
+        return new ServerCommandSource( receiver,
+            new Vec3d( pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5 ), Vec2f.ZERO,
+            (ServerWorld) getWorld(), 2,
+            name, new StringTextComponent( name ),
+            getWorld().getServer(), null
+        );
     }
 
     @Override
@@ -168,21 +118,21 @@ public class TileCommandComputer extends TileComputer
     }
 
     @Override
-    public boolean isUsable( EntityPlayer player, boolean ignoreRange )
+    public boolean isUsable( PlayerEntity player, boolean ignoreRange )
     {
         MinecraftServer server = player.getServer();
-        if( server == null || !server.isCommandBlockEnabled() )
+        if( server == null || !server.areCommandBlocksEnabled() )
         {
-            player.sendMessage( new TextComponentTranslation( "advMode.notEnabled" ) );
+            player.addChatMessage( new TranslatableTextComponent( "advMode.notEnabled" ), true );
             return false;
         }
-        else if( ComputerCraft.canPlayerUseCommands( player ) && player.capabilities.isCreativeMode )
+        else if( ComputerCraft.isPlayerOpped( player ) && player.abilities.creativeMode )
         {
             return super.isUsable( player, ignoreRange );
         }
         else
         {
-            player.sendMessage( new TextComponentTranslation( "advMode.notAllowed" ) );
+            player.addChatMessage( new TranslatableTextComponent( "advMode.notAllowed" ), true );
             return false;
         }
     }

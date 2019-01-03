@@ -1,0 +1,15 @@
+{
+    "type": "computercraft:computer_upgrade",
+    "pattern": [
+        "###",
+        "#C#",
+        " B "
+    ],
+    "key": {
+        "#": { "item": "minecraft:gold_ingot" },
+        "B": { "item": "minecraft:gold_block" },
+        "C": { "item": "computercraft:turtle_normal" }
+    },
+    "family": "Advanced",
+    "result": { "item": "computercraft:turtle_advanced" }
+}

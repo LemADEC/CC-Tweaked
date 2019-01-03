@@ -76,7 +76,7 @@ public class ServerComputerRegistry extends ComputerRegistry<ServerComputer>
 
         for( ServerComputer computer : getComputers() )
         {
-            if( computer.getID() == computerID ) return computer;
+            if( computer.getId() == computerID ) return computer;
         }
         return null;
     }

@@ -10,8 +10,7 @@ import dan200.computercraft.api.lua.ILuaContext;
 import dan200.computercraft.api.lua.LuaException;
 import dan200.computercraft.api.peripheral.IComputerAccess;
 import dan200.computercraft.api.peripheral.IPeripheral;
-import net.minecraft.tileentity.TileEntityCommandBlock;
-import net.minecraft.util.math.BlockPos;
+import net.minecraft.block.entity.CommandBlockBlockEntity;
 
 import javax.annotation.Nonnull;
 
@@ -19,9 +18,9 @@ import static dan200.computercraft.core.apis.ArgumentHelper.getString;
 
 public class CommandBlockPeripheral implements IPeripheral
 {
-    private final TileEntityCommandBlock m_commandBlock;
+    private final CommandBlockBlockEntity m_commandBlock;
 
-    public CommandBlockPeripheral( TileEntityCommandBlock commandBlock )
+    public CommandBlockPeripheral( CommandBlockBlockEntity commandBlock )
     {
         m_commandBlock = commandBlock;
     }
@@ -55,7 +54,7 @@ public class CommandBlockPeripheral implements IPeripheral
             {
                 // getCommand
                 return context.executeMainThreadTask( () -> new Object[] {
-                    m_commandBlock.getCommandBlockLogic().getCommand()
+                    m_commandBlock.getCommandExecutor().getCommand()
                 } );
             }
             case 1:
@@ -64,9 +63,8 @@ public class CommandBlockPeripheral implements IPeripheral
                 final String command = getString( arguments, 0 );
                 context.issueMainThreadTask( () ->
                 {
-                    BlockPos pos = m_commandBlock.getPos();
-                    m_commandBlock.getCommandBlockLogic().setCommand( command );
-                    m_commandBlock.getWorld().markBlockRangeForRenderUpdate( pos, pos );
+                    m_commandBlock.getCommandExecutor().setCommand( command );
+                    m_commandBlock.getCommandExecutor().method_8295();
                     return null;
                 } );
                 return null;
@@ -76,8 +74,8 @@ public class CommandBlockPeripheral implements IPeripheral
                 // runCommand
                 return context.executeMainThreadTask( () ->
                 {
-                    m_commandBlock.getCommandBlockLogic().trigger( m_commandBlock.getWorld() );
-                    int result = m_commandBlock.getCommandBlockLogic().getSuccessCount();
+                    m_commandBlock.getCommandExecutor().execute( m_commandBlock.getWorld() );
+                    int result = m_commandBlock.getCommandExecutor().getSuccessCount();
                     if( result > 0 )
                     {
                         return new Object[] { true };

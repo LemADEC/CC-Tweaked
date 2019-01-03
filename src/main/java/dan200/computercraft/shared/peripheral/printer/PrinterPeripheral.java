@@ -137,15 +137,7 @@ public class PrinterPeripheral implements IPeripheral
     @Override
     public boolean equals( IPeripheral other )
     {
-        if( other instanceof PrinterPeripheral )
-        {
-            PrinterPeripheral otherPrinter = (PrinterPeripheral) other;
-            if( otherPrinter.m_printer == this.m_printer )
-            {
-                return true;
-            }
-        }
-        return false;
+        return this == other || (other instanceof PrinterPeripheral && m_printer == ((PrinterPeripheral) other).m_printer);
     }
 
     @Nonnull

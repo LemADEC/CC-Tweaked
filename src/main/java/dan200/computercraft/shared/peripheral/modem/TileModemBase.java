@@ -7,20 +7,30 @@
 package dan200.computercraft.shared.peripheral.modem;
 
 import dan200.computercraft.api.peripheral.IPeripheral;
-import dan200.computercraft.shared.common.BlockGeneric;
-import dan200.computercraft.shared.peripheral.common.TilePeripheralBase;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.util.EnumFacing;
+import dan200.computercraft.shared.common.TileGeneric;
+import dan200.computercraft.shared.peripheral.IPeripheralTile;
+import net.minecraft.block.entity.BlockEntityType;
+import net.minecraft.util.Tickable;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.shape.VoxelShape;
+import net.minecraft.util.shape.VoxelShapes;
 
-import javax.annotation.Nonnull;
-
-public abstract class TileModemBase extends TilePeripheralBase
+public abstract class TileModemBase extends TileGeneric implements IPeripheralTile, Tickable
 {
+    public static final VoxelShape[] SHAPES = new VoxelShape[] {
+        VoxelShapes.cube( 0.125, 0.0, 0.125, 0.875, 0.1875, 0.875 ), // Down
+        VoxelShapes.cube( 0.125, 0.8125, 0.125, 0.875, 1.0, 0.875 ), // Up
+        VoxelShapes.cube( 0.125, 0.125, 0.0, 0.875, 0.875, 0.1875 ), // North
+        VoxelShapes.cube( 0.125, 0.125, 0.8125, 0.875, 0.875, 1.0 ), // South
+        VoxelShapes.cube( 0.0, 0.125, 0.125, 0.1875, 0.875, 0.875 ), // West
+        VoxelShapes.cube( 0.8125, 0.125, 0.125, 1.0, 0.875, 0.875 ), // East
+    };
 
     protected ModemPeripheral m_modem;
 
-    protected TileModemBase()
+    public TileModemBase( BlockEntityType<? extends TileModemBase> type )
     {
+        super( type );
         m_modem = createPeripheral();
     }
 
@@ -37,43 +47,17 @@ public abstract class TileModemBase extends TilePeripheralBase
     }
 
     @Override
-    public void onNeighbourChange()
+    public void tick()
     {
-        EnumFacing dir = getDirection();
-        if( !getWorld().isSideSolid( getPos().offset( dir ), dir.getOpposite() ) )
-        {
-            // Drop everything and remove block
-            ((BlockGeneric) getBlockType()).dropAllItems( getWorld(), getPos(), false );
-            getWorld().setBlockToAir( getPos() );
-        }
+        if( !getWorld().isClient && m_modem.getModemState().pollChanged() ) updateBlockState();
     }
+
+    protected abstract void updateBlockState();
+
+    protected abstract Direction getDirection();
 
     @Override
-    public void update()
-    {
-        super.update();
-        if( !getWorld().isRemote && m_modem.getModemState().pollChanged() )
-        {
-            updateAnim();
-        }
-    }
-
-    protected void updateAnim()
-    {
-        setAnim( m_modem.getModemState().isOpen() ? 1 : 0 );
-    }
-
-    @Override
-    public final void readDescription( @Nonnull NBTTagCompound nbt )
-    {
-        super.readDescription( nbt );
-        updateBlock();
-    }
-
-    // IPeripheralTile implementation
-
-    @Override
-    public IPeripheral getPeripheral( EnumFacing side )
+    public IPeripheral getPeripheral( Direction side )
     {
         return side == getDirection() ? m_modem : null;
     }

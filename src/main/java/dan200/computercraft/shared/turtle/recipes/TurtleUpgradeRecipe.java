@@ -6,69 +6,67 @@
 
 package dan200.computercraft.shared.turtle.recipes;
 
-import com.google.gson.JsonObject;
+import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.api.turtle.ITurtleUpgrade;
 import dan200.computercraft.api.turtle.TurtleSide;
 import dan200.computercraft.shared.TurtleUpgrades;
 import dan200.computercraft.shared.computer.core.ComputerFamily;
 import dan200.computercraft.shared.turtle.items.ITurtleItem;
 import dan200.computercraft.shared.turtle.items.TurtleItemFactory;
-import net.minecraft.inventory.InventoryCrafting;
+import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.crafting.IRecipe;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.recipe.AbstractRecipe;
+import net.minecraft.recipe.RecipeSerializer;
+import net.minecraft.recipe.RecipeSerializers;
+import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
-import net.minecraftforge.common.crafting.IRecipeFactory;
-import net.minecraftforge.common.crafting.JsonContext;
-import net.minecraftforge.registries.IForgeRegistryEntry;
 
 import javax.annotation.Nonnull;
 
-public class TurtleUpgradeRecipe extends IForgeRegistryEntry.Impl<IRecipe> implements IRecipe
+public class TurtleUpgradeRecipe extends AbstractRecipe
 {
+    private TurtleUpgradeRecipe( Identifier id )
+    {
+        super( id );
+    }
+
     @Override
-    public boolean canFit( int x, int y )
+    public boolean fits( int x, int y )
     {
         return x >= 3 && y >= 1;
     }
 
-    @Override
-    public boolean isDynamic()
-    {
-        return true;
-    }
-
     @Nonnull
     @Override
-    public ItemStack getRecipeOutput()
+    public ItemStack getOutput()
     {
         return TurtleItemFactory.create( -1, null, -1, ComputerFamily.Normal, null, null, 0, null );
     }
 
     @Override
-    public boolean matches( @Nonnull InventoryCrafting inventory, @Nonnull World world )
+    public boolean matches( @Nonnull Inventory inventory, @Nonnull World world )
     {
-        return !getCraftingResult( inventory ).isEmpty();
+        return !craft( inventory ).isEmpty();
     }
 
     @Nonnull
     @Override
-    public ItemStack getCraftingResult( @Nonnull InventoryCrafting inventory )
+    public ItemStack craft( @Nonnull Inventory inventory )
     {
         // Scan the grid for a row containing a turtle and 1 or 2 items
         ItemStack leftItem = ItemStack.EMPTY;
         ItemStack turtle = ItemStack.EMPTY;
         ItemStack rightItem = ItemStack.EMPTY;
 
-        for( int y = 0; y < inventory.getHeight(); y++ )
+        for( int y = 0; y < inventory.getInvHeight(); y++ )
         {
             if( turtle.isEmpty() )
             {
                 // Search this row for potential turtles
                 boolean finishedRow = false;
-                for( int x = 0; x < inventory.getWidth(); x++ )
+                for( int x = 0; x < inventory.getInvWidth(); x++ )
                 {
-                    ItemStack item = inventory.getStackInRowAndColumn( x, y );
+                    ItemStack item = inventory.getInvStack( x + y * inventory.getInvWidth() );
                     if( !item.isEmpty() )
                     {
                         if( finishedRow )
@@ -124,9 +122,9 @@ public class TurtleUpgradeRecipe extends IForgeRegistryEntry.Impl<IRecipe> imple
             else
             {
                 // Turtle is already found, just check this row is empty
-                for( int x = 0; x < inventory.getWidth(); x++ )
+                for( int x = 0; x < inventory.getInvWidth(); x++ )
                 {
-                    ItemStack item = inventory.getStackInRowAndColumn( x, y );
+                    ItemStack item = inventory.getInvStack( x + y * inventory.getInvWidth() );
                     if( !item.isEmpty() )
                     {
                         return ItemStack.EMPTY;
@@ -144,7 +142,7 @@ public class TurtleUpgradeRecipe extends IForgeRegistryEntry.Impl<IRecipe> imple
         // At this point we have a turtle + 1 or 2 items
         // Get the turtle we already have
         ITurtleItem itemTurtle = (ITurtleItem) turtle.getItem();
-        ComputerFamily family = itemTurtle.getFamily( turtle );
+        ComputerFamily family = itemTurtle.getFamily();
         ITurtleUpgrade[] upgrades = {
             itemTurtle.getUpgrade( turtle, TurtleSide.Left ),
             itemTurtle.getUpgrade( turtle, TurtleSide.Right ),
@@ -174,20 +172,21 @@ public class TurtleUpgradeRecipe extends IForgeRegistryEntry.Impl<IRecipe> imple
         }
 
         // Construct the new stack
-        int computerID = itemTurtle.getComputerID( turtle );
+        int computerID = itemTurtle.getComputerId( turtle );
         String label = itemTurtle.getLabel( turtle );
         int fuelLevel = itemTurtle.getFuelLevel( turtle );
         int colour = itemTurtle.getColour( turtle );
-        ResourceLocation overlay = itemTurtle.getOverlay( turtle );
+        Identifier overlay = itemTurtle.getOverlay( turtle );
         return TurtleItemFactory.create( computerID, label, colour, family, upgrades[0], upgrades[1], fuelLevel, overlay );
     }
 
-    public static class Factory implements IRecipeFactory
+    @Override
+    public RecipeSerializer<?> getSerializer()
     {
-        @Override
-        public IRecipe parse( JsonContext jsonContext, JsonObject jsonObject )
-        {
-            return new TurtleUpgradeRecipe();
-        }
+        return SERIALIZER;
     }
+
+    public static final RecipeSerializer<TurtleUpgradeRecipe> SERIALIZER = new RecipeSerializers.Dummy<>(
+        ComputerCraft.MOD_ID + ":turtle_upgrade", TurtleUpgradeRecipe::new
+    );
 }

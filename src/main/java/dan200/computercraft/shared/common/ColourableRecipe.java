@@ -6,30 +6,36 @@
 
 package dan200.computercraft.shared.common;
 
-import com.google.gson.JsonObject;
+import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.shared.util.Colour;
 import dan200.computercraft.shared.util.ColourTracker;
 import dan200.computercraft.shared.util.ColourUtils;
-import net.minecraft.inventory.InventoryCrafting;
+import net.minecraft.inventory.Inventory;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.crafting.IRecipe;
+import net.minecraft.recipe.AbstractRecipe;
+import net.minecraft.recipe.RecipeSerializer;
+import net.minecraft.recipe.RecipeSerializers;
+import net.minecraft.util.DyeColor;
+import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
-import net.minecraftforge.common.crafting.IRecipeFactory;
-import net.minecraftforge.common.crafting.JsonContext;
-import net.minecraftforge.registries.IForgeRegistryEntry;
 
 import javax.annotation.Nonnull;
 
-public class ColourableRecipe extends IForgeRegistryEntry.Impl<IRecipe> implements IRecipe
+public class ColourableRecipe extends AbstractRecipe
 {
+    public ColourableRecipe( Identifier id )
+    {
+        super( id );
+    }
+
     @Override
-    public boolean matches( @Nonnull InventoryCrafting inv, @Nonnull World worldIn )
+    public boolean matches( @Nonnull Inventory inv, @Nonnull World world )
     {
         boolean hasColourable = false;
         boolean hasDye = false;
-        for( int i = 0; i < inv.getSizeInventory(); i++ )
+        for( int i = 0; i < inv.getInvSize(); i++ )
         {
-            ItemStack stack = inv.getStackInSlot( i );
+            ItemStack stack = inv.getInvStack( i );
             if( stack.isEmpty() ) continue;
 
             if( stack.getItem() instanceof IColouredItem )
@@ -37,7 +43,7 @@ public class ColourableRecipe extends IForgeRegistryEntry.Impl<IRecipe> implemen
                 if( hasColourable ) return false;
                 hasColourable = true;
             }
-            else if( ColourUtils.getStackColour( stack ) >= 0 )
+            else if( ColourUtils.getStackColour( stack ) != null )
             {
                 hasDye = true;
             }
@@ -52,15 +58,15 @@ public class ColourableRecipe extends IForgeRegistryEntry.Impl<IRecipe> implemen
 
     @Nonnull
     @Override
-    public ItemStack getCraftingResult( @Nonnull InventoryCrafting inv )
+    public ItemStack craft( @Nonnull Inventory inv )
     {
         ItemStack colourable = ItemStack.EMPTY;
 
         ColourTracker tracker = new ColourTracker();
 
-        for( int i = 0; i < inv.getSizeInventory(); i++ )
+        for( int i = 0; i < inv.getInvSize(); i++ )
         {
-            ItemStack stack = inv.getStackInSlot( i );
+            ItemStack stack = inv.getInvStack( i );
 
             if( stack.isEmpty() ) continue;
 
@@ -70,47 +76,33 @@ public class ColourableRecipe extends IForgeRegistryEntry.Impl<IRecipe> implemen
             }
             else
             {
-                int index = ColourUtils.getStackColour( stack );
-                if( index < 0 ) continue;
+                DyeColor dye = ColourUtils.getStackColour( stack );
+                if( dye == null ) continue;
 
-                Colour colour = Colour.values()[index];
+                Colour colour = Colour.fromInt( 15 - dye.getId() );
                 tracker.addColour( colour.getR(), colour.getG(), colour.getB() );
             }
         }
 
-        if( colourable.isEmpty() )
-        {
-            return ItemStack.EMPTY;
-        }
+        if( colourable.isEmpty() ) return ItemStack.EMPTY;
 
         return ((IColouredItem) colourable.getItem()).withColour( colourable, tracker.getColour() );
     }
 
     @Override
-    public boolean canFit( int x, int y )
+    public boolean fits( int x, int y )
     {
         return x >= 2 && y >= 2;
     }
 
     @Override
-    public boolean isDynamic()
-    {
-        return true;
-    }
-
     @Nonnull
-    @Override
-    public ItemStack getRecipeOutput()
+    public RecipeSerializer<?> getSerializer()
     {
-        return ItemStack.EMPTY;
+        return SERIALIZER;
     }
 
-    public static class Factory implements IRecipeFactory
-    {
-        @Override
-        public IRecipe parse( JsonContext jsonContext, JsonObject jsonObject )
-        {
-            return new ColourableRecipe();
-        }
-    }
+    public static final RecipeSerializer<?> SERIALIZER = new RecipeSerializers.Dummy<>(
+        ComputerCraft.MOD_ID + ":colour", ColourableRecipe::new
+    );
 }

@@ -6,17 +6,19 @@
 
 package dan200.computercraft.shared.network.client;
 
+import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.shared.command.text.TableBuilder;
 import dan200.computercraft.shared.network.NetworkMessage;
-import dan200.computercraft.shared.network.NetworkMessages;
-import dan200.computercraft.shared.util.NBTUtil;
-import net.minecraft.network.PacketBuffer;
-import net.minecraft.util.text.ITextComponent;
+import net.minecraft.text.TextComponent;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.PacketByteBuf;
 
 import javax.annotation.Nonnull;
 
 public class ChatTableClientMessage implements NetworkMessage
 {
+    private static final Identifier ID = new Identifier( ComputerCraft.MOD_ID, "chat_table" );
+
     private TableBuilder table;
 
     public ChatTableClientMessage( TableBuilder table )
@@ -30,9 +32,9 @@ public class ChatTableClientMessage implements NetworkMessage
     }
 
     @Override
-    public int getId()
+    public @Nonnull Identifier getId()
     {
-        return NetworkMessages.CHAT_TABLE_CLIENT_MESSAGE;
+        return ID;
     }
 
     public TableBuilder getTable()
@@ -41,33 +43,33 @@ public class ChatTableClientMessage implements NetworkMessage
     }
 
     @Override
-    public void toBytes( @Nonnull PacketBuffer buf )
+    public void toBytes( @Nonnull PacketByteBuf buf )
     {
         buf.writeVarInt( table.getId() );
         buf.writeVarInt( table.getColumns() );
         buf.writeBoolean( table.getHeaders() != null );
         if( table.getHeaders() != null )
         {
-            for( ITextComponent header : table.getHeaders() ) buf.writeTextComponent( header );
+            for( TextComponent header : table.getHeaders() ) buf.writeTextComponent( header );
         }
 
         buf.writeVarInt( table.getRows().size() );
-        for( ITextComponent[] row : table.getRows() )
+        for( TextComponent[] row : table.getRows() )
         {
-            for( ITextComponent column : row ) buf.writeTextComponent( column );
+            for( TextComponent column : row ) buf.writeTextComponent( column );
         }
     }
 
     @Override
-    public void fromBytes( @Nonnull PacketBuffer buf )
+    public void fromBytes( @Nonnull PacketByteBuf buf )
     {
         int id = buf.readVarInt();
         int columns = buf.readVarInt();
         TableBuilder table;
         if( buf.readBoolean() )
         {
-            ITextComponent[] headers = new ITextComponent[columns];
-            for( int i = 0; i < columns; i++ ) headers[i] = NBTUtil.readTextComponent( buf );
+            TextComponent[] headers = new TextComponent[columns];
+            for( int i = 0; i < columns; i++ ) headers[i] = buf.readTextComponent();
             table = new TableBuilder( id, headers );
         }
         else
@@ -78,10 +80,11 @@ public class ChatTableClientMessage implements NetworkMessage
         int rows = buf.readVarInt();
         for( int i = 0; i < rows; i++ )
         {
-            ITextComponent[] row = new ITextComponent[columns];
-            for( int j = 0; j < columns; j++ ) row[j] = NBTUtil.readTextComponent( buf );
+            TextComponent[] row = new TextComponent[columns];
+            for( int j = 0; j < columns; j++ ) row[j] = buf.readTextComponent();
             table.row( row );
         }
+
         this.table = table;
     }
 }

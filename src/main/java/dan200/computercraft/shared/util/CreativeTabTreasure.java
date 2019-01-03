@@ -6,30 +6,22 @@
 
 package dan200.computercraft.shared.util;
 
-import dan200.computercraft.ComputerCraft;
-import net.minecraft.creativetab.CreativeTabs;
-import net.minecraft.item.ItemStack;
+import net.minecraft.item.ItemGroup;
 
-import javax.annotation.Nonnull;
-
-public class CreativeTabTreasure extends CreativeTabs
+public abstract class CreativeTabTreasure extends ItemGroup
 {
     public CreativeTabTreasure( int i )
     {
         super( i, "Treasure Disks" );
     }
-
+    
+    /*
     @Nonnull
     @Override
+    @Environment( EnvType.CLIENT )
     public ItemStack createIcon()
     {
         return new ItemStack( ComputerCraft.Items.treasureDisk );
     }
-
-    @Nonnull
-    @Override
-    public String getTranslationKey()
-    {
-        return getTabLabel();
-    }
+    */
 }

@@ -12,16 +12,17 @@ import dan200.computercraft.api.turtle.ITurtleCommand;
 import dan200.computercraft.api.turtle.TurtleAnimation;
 import dan200.computercraft.api.turtle.TurtleCommandResult;
 import dan200.computercraft.api.turtle.event.TurtleBlockEvent;
-import dan200.computercraft.shared.TurtlePermissions;
+import dan200.computercraft.api.turtle.event.TurtleEvent;
 import dan200.computercraft.shared.util.WorldUtil;
 import net.minecraft.block.Block;
-import net.minecraft.block.state.IBlockState;
+import net.minecraft.block.BlockState;
 import net.minecraft.entity.Entity;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.predicate.entity.EntityPredicates;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.BoundingBox;
+import net.minecraft.util.math.Direction;
+import net.minecraft.util.shape.VoxelShape;
 import net.minecraft.world.World;
-import net.minecraftforge.common.MinecraftForge;
 
 import javax.annotation.Nonnull;
 import java.util.List;
@@ -40,7 +41,7 @@ public class TurtleMoveCommand implements ITurtleCommand
     public TurtleCommandResult execute( @Nonnull ITurtleAccess turtle )
     {
         // Get world direction from direction
-        EnumFacing direction = m_direction.toWorldDir( turtle );
+        Direction direction = m_direction.toWorldDir( turtle );
 
         // Check if we can move
         World oldWorld = turtle.getWorld();
@@ -55,46 +56,42 @@ public class TurtleMoveCommand implements ITurtleCommand
         }
 
         // Check existing block is air or replaceable
-        IBlockState state = oldWorld.getBlockState( newPosition );
+        BlockState state = oldWorld.getBlockState( newPosition );
         Block block = state.getBlock();
         if( block != null &&
-            !oldWorld.isAirBlock( newPosition ) &&
-            !WorldUtil.isLiquidBlock( oldWorld, newPosition ) &&
-            !block.isReplaceable( oldWorld, newPosition ) )
+            !oldWorld.isAir( newPosition ) &&
+            !WorldUtil.isLiquidBlock( oldWorld, newPosition ) /*&&
+            !block.isReplaceable( oldWorld, newPosition )*/ )
         {
             return TurtleCommandResult.failure( "Movement obstructed" );
         }
 
         // Check there isn't anything in the way
-        AxisAlignedBB aabb = state.getBoundingBox( oldWorld, oldPosition );
+        BoundingBox aabb = getBox(state.getCollisionShape( oldWorld, oldPosition ));
         aabb = aabb.offset(
             newPosition.getX(),
             newPosition.getY(),
             newPosition.getZ()
         );
-        if( !oldWorld.checkNoEntityCollision( aabb ) )
+        if( !oldWorld.method_8628( state, newPosition ) ) // checkNoEntityCollision
         {
             if( ComputerCraft.turtlesCanPush && m_direction != MoveDirection.Up && m_direction != MoveDirection.Down )
             {
                 // Check there is space for all the pushable entities to be pushed
-                List<Entity> list = oldWorld.getEntitiesWithinAABBExcludingEntity( null, aabb );
+                List<Entity> list = oldWorld.getEntities( (Entity) null, aabb, EntityPredicates.VALID_ENTITY );
                 for( Entity entity : list )
                 {
-                    if( !entity.isDead && entity.preventEntitySpawning )
+                    if( !entity.invalid /*&& entity.preventEntitySpawning*/ )
                     {
-                        AxisAlignedBB entityBB = entity.getEntityBoundingBox();
-                        if( entityBB == null )
-                        {
-                            entityBB = entity.getCollisionBoundingBox();
-                        }
+                        BoundingBox entityBB = entity.getBoundingBox();
                         if( entityBB != null )
                         {
-                            AxisAlignedBB pushedBB = entityBB.offset(
-                                direction.getXOffset(),
-                                direction.getYOffset(),
-                                direction.getZOffset()
+                            BoundingBox pushedBB = entityBB.offset(
+                                direction.getOffsetX(),
+                                direction.getOffsetY(),
+                                direction.getOffsetZ()
                             );
-                            if( !oldWorld.getCollisionBoxes( null, pushedBB ).isEmpty() )
+                            if( oldWorld.method_8607( null, pushedBB ).findAny().isPresent() )
                             {
                                 return TurtleCommandResult.failure( "Movement obstructed" );
                             }
@@ -109,7 +106,7 @@ public class TurtleMoveCommand implements ITurtleCommand
         }
 
         TurtleBlockEvent.Move moveEvent = new TurtleBlockEvent.Move( turtle, turtlePlayer, oldWorld, newPosition );
-        if( MinecraftForge.EVENT_BUS.post( moveEvent ) )
+        if( TurtleEvent.post( moveEvent ) )
         {
             return TurtleCommandResult.failure( moveEvent.getFailureMessage() );
         }
@@ -161,11 +158,11 @@ public class TurtleMoveCommand implements ITurtleCommand
 
     private TurtleCommandResult canEnter( TurtlePlayer turtlePlayer, World world, BlockPos position )
     {
-        if( world.isOutsideBuildHeight( position ) )
+        if( World.isHeightInvaid( position ) )
         {
             return TurtleCommandResult.failure( position.getY() < 0 ? "Too low to move" : "Too high to move" );
         }
-        else if( !world.isValid( position ) )
+        else if( !World.isValid( position ) )
         {
             return TurtleCommandResult.failure( "Cannot leave the world" );
         }
@@ -173,7 +170,7 @@ public class TurtleMoveCommand implements ITurtleCommand
         if( ComputerCraft.turtlesObeyBlockProtection )
         {
             // Check spawn protection
-            if( !TurtlePermissions.isBlockEnterable( world, position, turtlePlayer ) )
+            if( !ComputerCraft.isBlockEnterable( world, position, turtlePlayer ) )
             {
                 return TurtleCommandResult.failure( "Cannot enter protected area" );
             }
@@ -188,4 +185,11 @@ public class TurtleMoveCommand implements ITurtleCommand
         }
         return TurtleCommandResult.success();
     }
+
+    private static BoundingBox getBox( VoxelShape shape )
+    {
+        return shape.isEmpty() ? EMPTY_BOX : shape.getBoundingBox();
+    }
+
+    private static final BoundingBox EMPTY_BOX = new BoundingBox( 0, 0, 0, 0, 0, 0 );
 }

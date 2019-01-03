@@ -10,17 +10,15 @@ import dan200.computercraft.api.turtle.ITurtleAccess;
 import dan200.computercraft.api.turtle.ITurtleCommand;
 import dan200.computercraft.api.turtle.TurtleCommandResult;
 import net.minecraft.block.Block;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.item.Item;
+import net.minecraft.block.BlockState;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.NonNullList;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Direction;
 import net.minecraft.world.World;
-import net.minecraftforge.fml.relauncher.ReflectionHelper;
 
 import javax.annotation.Nonnull;
-import java.lang.reflect.Method;
+import java.util.List;
 
 public class TurtleCompareCommand implements ITurtleCommand
 {
@@ -36,10 +34,10 @@ public class TurtleCompareCommand implements ITurtleCommand
     public TurtleCommandResult execute( @Nonnull ITurtleAccess turtle )
     {
         // Get world direction from direction
-        EnumFacing direction = m_direction.toWorldDir( turtle );
+        Direction direction = m_direction.toWorldDir( turtle );
 
         // Get currently selected stack
-        ItemStack selectedStack = turtle.getInventory().getStackInSlot( turtle.getSelectedSlot() );
+        ItemStack selectedStack = turtle.getInventory().getInvStack( turtle.getSelectedSlot() );
 
         // Get stack representing thing in front
         World world = turtle.getWorld();
@@ -47,40 +45,22 @@ public class TurtleCompareCommand implements ITurtleCommand
         BlockPos newPosition = oldPosition.offset( direction );
 
         ItemStack lookAtStack = ItemStack.EMPTY;
-        if( !world.isAirBlock( newPosition ) )
+        if( !world.isAir( newPosition ) )
         {
-            IBlockState lookAtState = world.getBlockState( newPosition );
+            BlockState lookAtState = world.getBlockState( newPosition );
             Block lookAtBlock = lookAtState.getBlock();
-            if( !lookAtBlock.isAir( lookAtState, world, newPosition ) )
+            if( !lookAtState.isAir() )
             {
-                // Try createStackedBlock first
-                if( !lookAtBlock.hasTileEntity( lookAtState ) )
-                {
-                    try
-                    {
-                        Method method = ReflectionHelper.findMethod(
-                            Block.class,
-                            "func_180643_i", "getSilkTouchDrop",
-                            IBlockState.class
-                        );
-                        lookAtStack = (ItemStack) method.invoke( lookAtBlock, lookAtState );
-                    }
-                    catch( Exception e )
-                    {
-                    }
-                }
-
                 // See if the block drops anything with the same ID as itself
                 // (try 5 times to try and beat random number generators)
                 for( int i = 0; (i < 5) && lookAtStack.isEmpty(); i++ )
                 {
-                    NonNullList<ItemStack> drops = NonNullList.create();
-                    lookAtBlock.getDrops( drops, world, newPosition, lookAtState, 0 );
+                    List<ItemStack> drops = Block.getDroppedStacks( lookAtState, (ServerWorld) world, newPosition, world.getBlockEntity( newPosition ) );
                     if( drops.size() > 0 )
                     {
                         for( ItemStack drop : drops )
                         {
-                            if( drop.getItem() == Item.getItemFromBlock( lookAtBlock ) )
+                            if( drop.getItem() == lookAtBlock.getItem() )
                             {
                                 lookAtStack = drop;
                                 break;
@@ -92,43 +72,14 @@ public class TurtleCompareCommand implements ITurtleCommand
                 // Last resort: roll our own (which will probably be wrong)
                 if( lookAtStack.isEmpty() )
                 {
-                    Item item = Item.getItemFromBlock( lookAtBlock );
-                    if( item != null && item.getHasSubtypes() )
-                    {
-                        lookAtStack = new ItemStack( item, 1, lookAtBlock.getMetaFromState( lookAtState ) );
-                    }
-                    else
-                    {
-                        lookAtStack = new ItemStack( item, 1, 0 );
-                    }
+                    lookAtStack = new ItemStack( lookAtBlock );
                 }
             }
         }
 
         // Compare them
-        if( selectedStack.isEmpty() && lookAtStack.isEmpty() )
-        {
-            return TurtleCommandResult.success();
-        }
-        else if( !selectedStack.isEmpty() && lookAtStack != null )
-        {
-            if( selectedStack.getItem() == lookAtStack.getItem() )
-            {
-                if( !selectedStack.getHasSubtypes() )
-                {
-                    return TurtleCommandResult.success();
-                }
-                else if( selectedStack.getItemDamage() == lookAtStack.getItemDamage() )
-                {
-                    return TurtleCommandResult.success();
-                }
-                else if( selectedStack.getTranslationKey().equals( lookAtStack.getTranslationKey() ) )
-                {
-                    return TurtleCommandResult.success();
-                }
-            }
-        }
-
-        return TurtleCommandResult.failure();
+        return selectedStack.getItem() == lookAtStack.getItem()
+            ? TurtleCommandResult.success()
+            : TurtleCommandResult.failure();
     }
 }

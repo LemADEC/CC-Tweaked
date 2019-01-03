@@ -62,7 +62,7 @@ public abstract class ComputerProxy
     {
         TileComputerBase tile = getTile();
         ServerComputer computer = tile.getServerComputer();
-        return computer == null ? tile.getComputerID() : computer.getID();
+        return computer == null ? tile.getComputerId() : computer.getId();
     }
 
     public boolean isOn()

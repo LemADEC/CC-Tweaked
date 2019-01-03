@@ -8,18 +8,14 @@ package dan200.computercraft.shared.wired;
 
 import dan200.computercraft.api.network.wired.IWiredElement;
 import dan200.computercraft.api.network.wired.IWiredNode;
-import net.minecraft.nbt.NBTBase;
-import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
-import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.common.capabilities.CapabilityInject;
-import net.minecraftforge.common.capabilities.CapabilityManager;
 
 import javax.annotation.Nonnull;
 
 public class CapabilityWiredElement
 {
+    /*
     @CapabilityInject( IWiredElement.class )
     public static Capability<IWiredElement> CAPABILITY = null;
 
@@ -27,6 +23,7 @@ public class CapabilityWiredElement
     {
         CapabilityManager.INSTANCE.register( IWiredElement.class, new NullStorage(), NullElement::new );
     }
+    */
 
     private static class NullElement implements IWiredElement
     {
@@ -59,17 +56,19 @@ public class CapabilityWiredElement
         }
     }
 
+    /*
     private static class NullStorage implements Capability.IStorage<IWiredElement>
     {
         @Override
-        public NBTBase writeNBT( Capability<IWiredElement> capability, IWiredElement instance, EnumFacing side )
+        public NBTBase writeNBT( Capability<IWiredElement> capability, IWiredElement instance, Direction side )
         {
             return null;
         }
 
         @Override
-        public void readNBT( Capability<IWiredElement> capability, IWiredElement instance, EnumFacing side, NBTBase base )
+        public void readNBT( Capability<IWiredElement> capability, IWiredElement instance, Direction side, NBTBase base )
         {
         }
     }
+    */
 }

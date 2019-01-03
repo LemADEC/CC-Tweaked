@@ -10,7 +10,7 @@ import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.api.ComputerCraftAPI;
 import dan200.computercraft.shared.common.TileGeneric;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.Identifier;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.capabilities.CapabilityInject;
@@ -21,7 +21,7 @@ import pl.asie.charset.api.wires.IBundledReceiver;
 
 public final class IntegrationCharset
 {
-    private static final ResourceLocation CAPABILITY_KEY = new ResourceLocation( ComputerCraft.MOD_ID, "charset" );
+    private static final Identifier CAPABILITY_KEY = new Identifier( ComputerCraft.MOD_ID, "charset" );
 
     @CapabilityInject( IBundledEmitter.class )
     public static final Capability<IBundledEmitter> CAPABILITY_EMITTER = null;

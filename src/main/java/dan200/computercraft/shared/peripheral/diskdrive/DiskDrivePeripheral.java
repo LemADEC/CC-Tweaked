@@ -11,9 +11,8 @@ import dan200.computercraft.api.lua.LuaException;
 import dan200.computercraft.api.media.IMedia;
 import dan200.computercraft.api.peripheral.IComputerAccess;
 import dan200.computercraft.api.peripheral.IPeripheral;
-import dan200.computercraft.shared.media.items.ItemDiskLegacy;
+import dan200.computercraft.shared.media.items.ItemDisk;
 import dan200.computercraft.shared.util.StringUtil;
-import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 
 import javax.annotation.Nonnull;
@@ -58,6 +57,7 @@ public class DiskDrivePeripheral implements IPeripheral
     @Override
     public Object[] callMethod( @Nonnull IComputerAccess computer, @Nonnull ILuaContext context, int method, @Nonnull Object[] arguments ) throws LuaException
     {
+        // TODO: Start running this on the server thread!
         switch( method )
         {
             case 0:
@@ -87,10 +87,8 @@ public class DiskDrivePeripheral implements IPeripheral
                 // hasData
                 return new Object[] { m_diskDrive.getDiskMountPath( computer ) != null };
             case 4:
-            {
                 // getMountPath
                 return new Object[] { m_diskDrive.getDiskMountPath( computer ) };
-            }
             case 5:
             {
                 // hasAudio
@@ -119,8 +117,8 @@ public class DiskDrivePeripheral implements IPeripheral
             {
                 // getDiskID
                 ItemStack disk = m_diskDrive.getDiskStack();
-                Item item = disk.getItem();
-                return item instanceof ItemDiskLegacy ? new Object[] { ((ItemDiskLegacy) item).getDiskID( disk ) } : null;
+                return !disk.isEmpty() && disk.getItem() instanceof ItemDisk
+                    ? new Object[] { ItemDisk.getDiskID( disk ) } : null;
             }
             default:
                 return null;
@@ -144,7 +142,7 @@ public class DiskDrivePeripheral implements IPeripheral
     {
         if( this == other ) return true;
         if( !(other instanceof DiskDrivePeripheral) ) return false;
-        return ((DiskDrivePeripheral) other).m_diskDrive == this.m_diskDrive;
+        return m_diskDrive == ((DiskDrivePeripheral) other).m_diskDrive;
     }
 
     @Nonnull

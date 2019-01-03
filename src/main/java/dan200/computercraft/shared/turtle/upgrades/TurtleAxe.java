@@ -7,13 +7,13 @@
 package dan200.computercraft.shared.turtle.upgrades;
 
 import net.minecraft.item.Item;
-import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.Identifier;
 
 public class TurtleAxe extends TurtleTool
 {
-    public TurtleAxe( ResourceLocation id, int legacyId, String adjective, Item item )
+    public TurtleAxe( Identifier id, String adjective, Item item )
     {
-        super( id, legacyId, adjective, item );
+        super( id, adjective, item );
     }
 
     @Override
