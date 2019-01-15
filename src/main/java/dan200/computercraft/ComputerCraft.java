@@ -23,6 +23,7 @@ import dan200.computercraft.api.turtle.ITurtleUpgrade;
 import dan200.computercraft.api.turtle.event.TurtleAction;
 import dan200.computercraft.core.apis.AddressPredicate;
 import dan200.computercraft.core.apis.ApiFactories;
+import dan200.computercraft.core.apis.http.websocket.Websocket;
 import dan200.computercraft.core.filesystem.ComboMount;
 import dan200.computercraft.core.filesystem.FileMount;
 import dan200.computercraft.core.filesystem.FileSystemMount;
@@ -36,15 +37,21 @@ import dan200.computercraft.shared.computer.core.ClientComputerRegistry;
 import dan200.computercraft.shared.computer.core.ComputerFamily;
 import dan200.computercraft.shared.computer.core.ServerComputer;
 import dan200.computercraft.shared.computer.core.ServerComputerRegistry;
+import dan200.computercraft.shared.computer.items.ItemCommandComputer;
+import dan200.computercraft.shared.computer.items.ItemComputer;
 import dan200.computercraft.shared.media.items.ItemDiskExpanded;
 import dan200.computercraft.shared.media.items.ItemDiskLegacy;
 import dan200.computercraft.shared.media.items.ItemPrintout;
 import dan200.computercraft.shared.media.items.ItemTreasureDisk;
+import dan200.computercraft.shared.network.NetworkHandler;
 import dan200.computercraft.shared.peripheral.common.BlockPeripheral;
+import dan200.computercraft.shared.peripheral.common.ItemPeripheral;
 import dan200.computercraft.shared.peripheral.diskdrive.TileDiskDrive;
 import dan200.computercraft.shared.peripheral.modem.wired.BlockCable;
 import dan200.computercraft.shared.peripheral.modem.wired.BlockWiredModemFull;
+import dan200.computercraft.shared.peripheral.modem.wired.ItemCable;
 import dan200.computercraft.shared.peripheral.modem.wireless.BlockAdvancedModem;
+import dan200.computercraft.shared.peripheral.modem.wireless.ItemAdvancedModem;
 import dan200.computercraft.shared.peripheral.modem.wireless.WirelessNetwork;
 import dan200.computercraft.shared.peripheral.printer.TilePrinter;
 import dan200.computercraft.shared.pocket.items.ItemPocketComputer;
@@ -54,13 +61,17 @@ import dan200.computercraft.shared.proxy.ICCTurtleProxy;
 import dan200.computercraft.shared.proxy.IComputerCraftProxy;
 import dan200.computercraft.shared.turtle.blocks.BlockTurtle;
 import dan200.computercraft.shared.turtle.blocks.TileTurtle;
+import dan200.computercraft.shared.turtle.items.ItemTurtleAdvanced;
+import dan200.computercraft.shared.turtle.items.ItemTurtleLegacy;
+import dan200.computercraft.shared.turtle.items.ItemTurtleNormal;
 import dan200.computercraft.shared.turtle.upgrades.*;
 import dan200.computercraft.shared.util.CreativeTabMain;
 import dan200.computercraft.shared.util.IDAssigner;
+import dan200.computercraft.shared.util.IoUtil;
 import dan200.computercraft.shared.wired.CapabilityWiredElement;
 import dan200.computercraft.shared.wired.WiredNode;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntity;
@@ -69,15 +80,12 @@ import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
+import net.minecraftforge.common.DimensionManager;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.SidedProxy;
 import net.minecraftforge.fml.common.event.*;
-import net.minecraftforge.fml.common.network.NetworkRegistry;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.SimpleNetworkWrapper;
 import net.minecraftforge.fml.relauncher.Side;
-import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 
 import java.io.*;
@@ -137,6 +145,13 @@ public class ComputerCraft
     public static AddressPredicate http_whitelist = new AddressPredicate( DEFAULT_HTTP_WHITELIST );
     public static AddressPredicate http_blacklist = new AddressPredicate( DEFAULT_HTTP_BLACKLIST );
 
+    public static int httpTimeout = 30000;
+    public static int httpMaxRequests = 16;
+    public static long httpMaxDownload = 16 * 1024 * 1024;
+    public static long httpMaxUpload = 4 * 1024 * 1024;
+    public static int httpMaxWebsockets = 4;
+    public static int httpMaxWebsocketMessage = Websocket.MAX_MESSAGE_SIZE;
+
     public static boolean enableCommandBlock = false;
     public static int modem_range = 64;
     public static int modem_highAltitudeRange = 384;
@@ -164,51 +179,65 @@ public class ComputerCraft
     public static class Blocks
     {
         public static BlockComputer computer;
-        public static BlockPeripheral peripheral;
-        public static BlockCable cable;
+        public static BlockCommandComputer commandComputer;
+
         public static BlockTurtle turtle;
         public static BlockTurtle turtleExpanded;
         public static BlockTurtle turtleAdvanced;
-        public static BlockCommandComputer commandComputer;
+
+        public static BlockPeripheral peripheral;
+        public static BlockCable cable;
         public static BlockAdvancedModem advancedModem;
         public static BlockWiredModemFull wiredModemFull;
     }
 
     public static class Items
     {
+        public static ItemComputer computer;
+        public static ItemCommandComputer commandComputer;
+
+        public static ItemTurtleLegacy turtle;
+        public static ItemTurtleNormal turtleExpanded;
+        public static ItemTurtleAdvanced turtleAdvanced;
+
+        public static ItemPocketComputer pocketComputer;
+
         public static ItemDiskLegacy disk;
         public static ItemDiskExpanded diskExpanded;
-        public static ItemPrintout printout;
         public static ItemTreasureDisk treasureDisk;
-        public static ItemPocketComputer pocketComputer;
+
+        public static ItemPrintout printout;
+
+        public static ItemPeripheral peripheral;
+        public static ItemAdvancedModem advancedModem;
+        public static ItemCable cable;
+        public static ItemBlock wiredModemFull;
     }
 
-    public static class Upgrades
+    public static class TurtleUpgrades
     {
         public static TurtleModem wirelessModem;
+        public static TurtleModem advancedModem;
+        public static TurtleSpeaker speaker;
+
         public static TurtleCraftingTable craftingTable;
         public static TurtleSword diamondSword;
         public static TurtleShovel diamondShovel;
         public static TurtleTool diamondPickaxe;
         public static TurtleAxe diamondAxe;
         public static TurtleHoe diamondHoe;
-        public static TurtleModem advancedModem;
-        public static TurtleSpeaker turtleSpeaker;
     }
 
     public static class PocketUpgrades
     {
         public static PocketModem wirelessModem;
         public static PocketModem advancedModem;
-        public static PocketSpeaker pocketSpeaker;
+        public static PocketSpeaker speaker;
     }
 
     // Registries
-    public static ClientComputerRegistry clientComputerRegistry = new ClientComputerRegistry();
-    public static ServerComputerRegistry serverComputerRegistry = new ServerComputerRegistry();
-
-    // Networking
-    public static SimpleNetworkWrapper networkWrapper;
+    public static final ClientComputerRegistry clientComputerRegistry = new ClientComputerRegistry();
+    public static final ServerComputerRegistry serverComputerRegistry = new ServerComputerRegistry();
 
     // Creative
     public static CreativeTabMain mainCreativeTab;
@@ -223,11 +252,17 @@ public class ComputerCraft
     @Mod.Instance( value = ComputerCraft.MOD_ID )
     public static ComputerCraft instance;
 
-    @SidedProxy( clientSide = "dan200.computercraft.client.proxy.ComputerCraftProxyClient", serverSide = "dan200.computercraft.server.proxy.ComputerCraftProxyServer" )
-    public static IComputerCraftProxy proxy;
+    @SidedProxy(
+        clientSide = "dan200.computercraft.client.proxy.ComputerCraftProxyClient",
+        serverSide = "dan200.computercraft.shared.proxy.ComputerCraftProxyCommon"
+    )
+    private static IComputerCraftProxy proxy;
 
-    @SidedProxy( clientSide = "dan200.computercraft.client.proxy.CCTurtleProxyClient", serverSide = "dan200.computercraft.server.proxy.CCTurtleProxyServer" )
-    public static ICCTurtleProxy turtleProxy;
+    @SidedProxy(
+        clientSide = "dan200.computercraft.client.proxy.CCTurtleProxyClient",
+        serverSide = "dan200.computercraft.shared.proxy.CCTurtleProxyCommon"
+    )
+    private static ICCTurtleProxy turtleProxy;
 
     @Mod.EventHandler
     public void preInit( FMLPreInitializationEvent event )
@@ -238,7 +273,7 @@ public class ComputerCraft
         Config.load( event.getSuggestedConfigurationFile() );
 
         // Setup network
-        networkWrapper = NetworkRegistry.INSTANCE.newSimpleChannel( ComputerCraft.MOD_ID );
+        NetworkHandler.setup();
 
         proxy.preInit();
         turtleProxy.preInit();
@@ -346,31 +381,6 @@ public class ComputerCraft
         return new File( getBaseDir(), "resourcepacks" );
     }
 
-    public static File getWorldDir( World world )
-    {
-        return proxy.getWorldDir( world );
-    }
-
-    public static void sendToPlayer( EntityPlayer player, IMessage packet )
-    {
-        networkWrapper.sendTo( packet, (EntityPlayerMP) player );
-    }
-
-    public static void sendToAllPlayers( IMessage packet )
-    {
-        networkWrapper.sendToAll( packet );
-    }
-
-    public static void sendToServer( IMessage packet )
-    {
-        networkWrapper.sendToServer( packet );
-    }
-
-    public static void sendToAllAround( IMessage packet, NetworkRegistry.TargetPoint point )
-    {
-        networkWrapper.sendToAllAround( packet, point );
-    }
-
     public static boolean canPlayerUseCommands( EntityPlayer player )
     {
         MinecraftServer server = player.getServer();
@@ -447,7 +457,7 @@ public class ComputerCraft
     @Deprecated
     public static int createUniqueNumberedSaveDir( World world, String parentSubPath )
     {
-        return IDAssigner.getNextIDFromDirectory( new File( getWorldDir( world ), parentSubPath ) );
+        return IDAssigner.getNextIDFromDirectory( parentSubPath );
     }
 
     @Deprecated
@@ -455,7 +465,7 @@ public class ComputerCraft
     {
         try
         {
-            return new FileMount( new File( getWorldDir( world ), subPath ), capacity );
+            return new FileMount( new File( getWorldDir(), subPath ), capacity );
         }
         catch( Exception e )
         {
@@ -599,12 +609,12 @@ public class ComputerCraft
                         }
                         else
                         {
-                            IOUtils.closeQuietly( zipFile );
+                            IoUtil.closeQuietly( zipFile );
                         }
                     }
                     catch( IOException e )
                     {
-                        if( zipFile != null ) IOUtils.closeQuietly( zipFile );
+                        if( zipFile != null ) IoUtil.closeQuietly( zipFile );
                     }
                 }
             }
@@ -672,10 +682,21 @@ public class ComputerCraft
     @Deprecated
     public static void registerTurtleUpgrade( ITurtleUpgrade upgrade )
     {
-        TurtleUpgrades.register( upgrade );
+        dan200.computercraft.shared.TurtleUpgrades.register( upgrade );
+    }
+
+    public static File getWorldDir()
+    {
+        return DimensionManager.getCurrentSaveRootDirectory();
     }
 
     //region Compatibility
+    @Deprecated
+    public static File getWorldDir( World world )
+    {
+        return DimensionManager.getCurrentSaveRootDirectory();
+    }
+
     @Deprecated
     public static IMedia getMedia( ItemStack stack )
     {
@@ -691,7 +712,7 @@ public class ComputerCraft
     @Deprecated
     public static ITurtleUpgrade getTurtleUpgrade( ItemStack stack )
     {
-        return TurtleUpgrades.get( stack );
+        return dan200.computercraft.shared.TurtleUpgrades.get( stack );
     }
 
     @Deprecated
@@ -703,7 +724,7 @@ public class ComputerCraft
     @Deprecated
     public static ITurtleUpgrade getTurtleUpgrade( String id )
     {
-        return TurtleUpgrades.get( id );
+        return dan200.computercraft.shared.TurtleUpgrades.get( id );
     }
 
     @Deprecated
